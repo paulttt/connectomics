@@ -2,7 +2,8 @@ import sys
 import pdb
 from skimage import io
 import matplotlib.pyplot as plt
-from CellAnalysis.utils import find_segment_differences
+from CellAnalysis.utils import *
+import pandas as pd
 
 if __name__ == "__main__":
 
@@ -58,7 +59,7 @@ if __name__ == "__main__":
     area_RM = df_RM['area']
     area_RM_sd = df_RM_sd['area']
 
-    print(area_JBW.unique())
+
 
     print(area_JBW.shape)
     print(area_JBW_sd.shape)
@@ -80,7 +81,7 @@ if __name__ == "__main__":
     area_diff_MM = area_MM - area_MM_sd
     area_diff_DL = area_DL - area_DL_sd
     area_diff_RM = area_RM - area_RM_sd
-
+    print(calc_centroid_diff(df_PT, df_PT_sd))
     fig = plt.figure()
     # fig.title("histogramms: area difference compared to stardist segmentation")
     ax1 = fig.add_subplot(2, 3, 1)

@@ -148,16 +148,51 @@ def find_segment_differences(pred, gt, centroid_thresh, iou_thresh):
             df_pred_ext = df_pred_ext.append(df_pred.loc[idx_max], ignore_index=False)
         if not match_found:
             df_gt_ext = df_gt_ext.append(df_gt.loc[idx_gt], ignore_index=False)
-            df_pred_ext = df_pred_ext.append({'area': 0.0, 'centroid': np.array([0.0, 0.0, 0.0]),
+            df_pred_ext = df_pred_ext.append({'area': 0.0, 'centroid': np.array([np.nan, np.nan, np.nan]),
                                               'match': False}, ignore_index=True)
 
     subframe = df_pred[df_pred['match'] == False]
     if subframe.shape[0] > 0:
         df_pred_ext = df_pred_ext.append(subframe, ignore_index=False)
         n_rows = subframe.shape[0]
-        df_gt_ext = df_gt_ext.append({'area': [0.0] * n_rows, 'centroid': np.array([0.0, 0.0, 0.0]) * n_rows,
-                                      'match': [False] * n_rows}, ignore_index=True)
+        df_gt_ext = df_gt_ext.append(pd.DataFrame.from_dict({'area': [0.0] * n_rows,
+                                                             'centroid': [[np.nan, np.nan, np.nan]] * n_rows,
+                                                             'match': [False] * n_rows}), ignore_index=True)
     return df_gt_ext, df_pred_ext
+
+def calc_area_diff(df_gt, df_pred):
+    if "area" not in df_gt.columns or "area" not in df_pred.columns:
+        print("'area' column is required for execution of the function.")
+    elif df_gt['area'].shape != df_pred['area'].shape:
+        raise KeyError("shape of area column must be of same shape.")
+    return df_gt['area'] - df_pred['area']
+
+def calc_centroid_diff(df_gt, df_pred):
+    if "centroid" not in df_gt.columns or "centroid" not in df_pred.columns:
+        print("'centroid' column is required for execution of the function.")
+    elif df_gt['centroid'].shape != df_pred['centroid'].shape:
+        raise KeyError("shape of centroid column must be of same shape.")
+    #diff = np.full((df_gt.shape[0], df_gt['centroid'].iloc[0].shape[1]), np.nan)
+    print(df_gt.shape)
+    print(df_pred.shape)
+    df = pd.DataFrame({"centroid_diff": [np.array([np.nan, np.nan, np.nan])] * df_gt.shape[0]})
+    for i in range(df_gt.shape[0]):
+        if np.isnan(df_gt["centroid"].iloc[i]).any() or np.isnan(df_pred["centroid"].iloc[i]).any():
+            continue
+        else:
+            df.centroid_diff.iloc[i] = df_gt["centroid"].iloc[i] - df_pred["centroid"].iloc[i]
+    '''
+    for idx, row in df_gt.iterrows():
+        print(idx)
+        print(row)
+        if np.isnan(df_gt['centroid'].iloc[idx]).any() or np.isnan(df_pred['centroid'].iloc[idx]).any():
+            continue
+        else:
+            df.centroid_diff.loc[idx] = df_gt["centroid"] - df_pred["centroid"]
+    '''
+    return df
+
+
 
 def create_tiff_stack(name, path):
     with tifffile.TiffWriter(name) as stack:
