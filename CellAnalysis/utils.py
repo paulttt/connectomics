@@ -276,38 +276,47 @@ def find_segment_differences(pred, gt, centroid_thresh, iou_thresh):
 
     for idx_gt, row_gt in df_gt.iterrows():
         match_found = False
+
+        # find neighbouring cells within a dilated bounding cube search space
         df_pred_cand, pred_labels = find_candidates(gt, pred, row_gt['bbox'], df_pred, margin=20)
+        # choose close cells based on centroid distance thresholding
         df_match, label_match, df_closest, distances = find_centroid_matches(row_gt['centroid'], df_pred_cand,
                                                                              centroid_thresh)
-        iou_max = 0
         iou_match = []
         for idx_pred, row_pred in df_match.iterrows():
+            # enlarge region of interest such that all the segments of interest are fully contained within the volume
             bbox = get_convex_bbox(row_gt['bbox'], row_pred['bbox'])
             gt_roi = crop_volume(gt, bbox)
             pred_roi = crop_volume(pred, bbox)
             iou = evaluate_overlap(gt_roi, pred_roi, idx_gt + 1, idx_pred + 1)
 
             if iou >= iou_thresh:
+                # store all the instances that fulfill threshold condition as list of tuples
                 iou_match.append((iou, idx_pred))
-                if iou >= iou_max:
-                    iou_max = iou
                 match_found = True
 
         if match_found:
+            # find idx of segment with biggest iou score
             idx_max = max(iou_match, key=lambda i: i[0])[1]
             df_gt['match'] = True
             df_pred['match'] = True
+            # fill up each new dataframe with the matching instance rows
             df_gt_ext = df_gt_ext.append(df_gt.loc[idx_gt], ignore_index=False)
             df_pred_ext = df_pred_ext.append(df_pred.loc[idx_max], ignore_index=False)
         if not match_found:
+            # fill up each dataframe with a new line, where the dummy row in df_pred_ext corresponds to a
+            # FALSE NEGATIVE of the prediction algorithm.
             df_gt_ext = df_gt_ext.append(df_gt.loc[idx_gt], ignore_index=False)
             df_pred_ext = df_pred_ext.append({'area': 0.0, 'centroid': np.array([np.nan, np.nan, np.nan]),
                                               'match': False}, ignore_index=True)
 
+    # find all the FALSE POSITIVES in prediction mask and store them in subframe
     subframe = df_pred[df_pred['match'] == False]
     if subframe.shape[0] > 0:
-        df_pred_ext = df_pred_ext.append(subframe, ignore_index=False)
         n_rows = subframe.shape[0]
+        # fill up each dataframe with a new line, where the dummy row in df_gt_ext corresponds to a
+        # FALSE POSITIVE of the prediction algorithm.
+        df_pred_ext = df_pred_ext.append(subframe, ignore_index=False)
         df_gt_ext = df_gt_ext.append(pd.DataFrame.from_dict({'area': [0.0] * n_rows,
                                                              'centroid': [[np.nan, np.nan, np.nan]] * n_rows,
                                                              'match': [False] * n_rows}), ignore_index=True)
