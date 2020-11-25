@@ -82,28 +82,28 @@ if __name__ == "__main__":
     area_diff_DL = area_DL - area_DL_sd
     area_diff_RM = area_RM - area_RM_sd
     print(calc_centroid_diff(df_PT, df_PT_sd))
-    fig = plt.figure()
+    fig1 = plt.figure()
     # fig.title("histogramms: area difference compared to stardist segmentation")
-    ax1 = fig.add_subplot(2, 3, 1)
-    ax2 = fig.add_subplot(2, 3, 2)
-    ax3 = fig.add_subplot(2, 3, 3)
-    ax4 = fig.add_subplot(2, 3, 4)
-    ax5 = fig.add_subplot(2, 3, 5)
+    ax1 = fig1.add_subplot(2, 3, 1)
+    ax2 = fig1.add_subplot(2, 3, 2)
+    ax3 = fig1.add_subplot(2, 3, 3)
+    ax4 = fig1.add_subplot(2, 3, 4)
+    ax5 = fig1.add_subplot(2, 3, 5)
     ax1.hist(area_diff_JBW.values)  # , bins = JBW_bins)
-    ax1.set_title("JBW - stardist")
+    ax1.set_title("JBW - Cellpose")
     # ax1.set_xlabel('intensity bins')
 
     ax2.hist(area_diff_PT.values)  # , bins = PT_bins)
-    ax2.set_title("PT - stardist")
+    ax2.set_title("PT - Cellpose")
 
     ax3.hist(area_diff_MM.values)  # , bins = PT_bins)
-    ax3.set_title("MM - stardist")
+    ax3.set_title("MM - Cellpose")
 
     ax4.hist(area_diff_DL.values)  # , bins = PT_bins)
-    ax4.set_title("DL - stardist")
+    ax4.set_title("DL - Cellpose")
 
     ax5.hist(area_diff_RM.values)  # , bins = PT_bins)
-    ax5.set_title("RM - stardist")
+    ax5.set_title("RM - Cellpose")
     # ax2.set_xlabel('intensity bins')
     '''
     plt.subplots_adjust(left=0.125,
@@ -113,6 +113,15 @@ if __name__ == "__main__":
                         wspace=2, 
                         hspace=0.2)
     '''
+    fig2 = plt.figure()
+    # fig.title("histogramms: area difference compared to Cellpose segmentation")
+    ax6 = fig2.add_subplot(2, 3, 1)
+    ax7 = fig2.add_subplot(2, 3, 2)
+    ax8 = fig2.add_subplot(2, 3, 3)
+    ax9 = fig2.add_subplot(2, 3, 4)
+    ax10 = fig2.add_subplot(2, 3, 5)
+
+    
     plt.tight_layout()
 
     plt.show()
