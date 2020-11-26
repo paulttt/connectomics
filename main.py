@@ -4,6 +4,7 @@ from skimage import io
 import matplotlib.pyplot as plt
 from CellAnalysis.utils import *
 import pandas as pd
+from imageio import volwrite, volread
 
 if __name__ == "__main__":
 
@@ -32,7 +33,7 @@ if __name__ == "__main__":
     seg_RM_stardist = io.imread(file_root + 'box5_stardist.tif')
 
     centroid_thresh = 10
-    iou_thresh = 0.8
+    iou_thresh = 0.6
     df_PT, df_PT_sd = find_segment_differences(seg_PT_stardist, seg_PT, centroid_thresh=centroid_thresh,
                                                  iou_thresh=iou_thresh)
     df_JBW, df_JBW_sd = find_segment_differences(seg_JBW_stardist, seg_JBW, centroid_thresh=centroid_thresh,
@@ -44,6 +45,10 @@ if __name__ == "__main__":
     df_RM, df_RM_sd = find_segment_differences(seg_RM_stardist, seg_RM, centroid_thresh=centroid_thresh,
                                                  iou_thresh=iou_thresh)
 
+    print(df_JBW_sd.confusion.unique())
+    print(df_JBW_sd[df_JBW_sd['confusion'] == None])
+    _, _, merged_JBW = sync_instance_masks(seg_JBW, seg_JBW_stardist, df_PT, df_PT_sd)
+    volwrite('visualize_segs.tiff', merged_JBW)
     area_JBW = df_JBW['area']
     area_JBW_sd = df_JBW_sd['area']
 
@@ -81,7 +86,7 @@ if __name__ == "__main__":
     area_diff_MM = area_MM - area_MM_sd
     area_diff_DL = area_DL - area_DL_sd
     area_diff_RM = area_RM - area_RM_sd
-    print(calc_centroid_diff(df_PT, df_PT_sd))
+    #print(calc_centroid_diff(df_PT, df_PT_sd))
     fig1 = plt.figure()
     # fig.title("histogramms: area difference compared to stardist segmentation")
     ax1 = fig1.add_subplot(2, 3, 1)

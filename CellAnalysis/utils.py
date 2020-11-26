@@ -12,8 +12,8 @@ def iou(pred, gt):
 
     Parameters
     ----------
-    pred : binary numpy ndarray
-    gt : binary numpy ndarray
+    pred : array_like(binary)
+    gt : array_like(binary)
 
     Returns
     -------
@@ -34,7 +34,7 @@ def add_margin_to_bbox(bbox, margin, shape):
 
     Parameters
     ----------
-    bbox : numpy array
+    bbox : array_like
         six dimensional vector with entries [row_start, col_start, slice_start, row_end, col_end, slice_end]
     margin : float
         margin value that gets added on each of the six sides of the bounding cube
@@ -43,7 +43,7 @@ def add_margin_to_bbox(bbox, margin, shape):
 
     Returns
     -------
-    bbox : numpy array
+    bbox : array_like
         six dimensional vector with new boundary values
     """
     temp = math.floor(bbox.shape[0] / 2)
@@ -66,9 +66,9 @@ def find_candidates(gt, pred, gt_bbox, df_pred, margin=0):
     and their labels will be returned to the user.
     Parameters
     ----------
-    gt : numpy ndarray
+    gt : array_like
         multi-instance segmentation mask of ground truth segments
-    pred : numpy ndarray
+    pred : array_like
         multi-instance segmentation mask of prediction segments
     gt_bbox : pandas DataFrame
     df_pred : pandas DataFrame
@@ -78,7 +78,7 @@ def find_candidates(gt, pred, gt_bbox, df_pred, margin=0):
     -------
     df_pred_cand : pandas DataFrame
         contains all the segment instances that are found within the search volume
-    pred_labels: numpy ndarray
+    pred_labels: array_like
         contains all the unique labels of cell instances
     """
     gt_bbox = add_margin_to_bbox(gt_bbox, margin, pred.shape)
@@ -94,7 +94,7 @@ def find_centroid_matches(centroid, df_segments, thresh):
     """
     Parameters
     ----------
-    centroid : numpy ndarray
+    centroid : array_like
         three dimensional vector representation of cell's centroid location within the volume
     df_segments : pandas DataFrame
         containing candidate cells that lay around the cell of interest
@@ -135,9 +135,9 @@ def evaluate_overlap(gt, pred, gt_label, pred_label, metric='IoU'):
     computes the overlap between two given labeled segments from two different volumes.
     Parameters
     ----------
-    gt : numpy ndarray
+    gt : array_like
         multi-instance segmentation mask of ground truth segments
-    pred : numpy ndarray
+    pred : array_like
         multi-instance segmentation mask of prediction segments
     gt_label : int
         label of instance of interest from ground truth volume
@@ -159,14 +159,14 @@ def crop_volume(vol, bbox):
     """
     Parameters
     ----------
-    vol : numpy ndarray
+    vol : array_like
         3 dimensional matrix of arbitrary type
-    bbox : numpy ndarray
+    bbox : array_like
         bounding box with entries [row_start, col_start, slice_start, row_end, col_end, slice_end]
 
     Returns
     -------
-    vol: numpy ndarray
+    vol: array_like
         cropped volume
     """
     bbox = bbox.astype(int)
@@ -185,13 +185,13 @@ def get_convex_bbox(bbox_1, bbox_2):
 
     Attributes
     ----------
-    bbox_1 : numpy ndarray
+    bbox_1 : array_like
         expected to be of type [row_start, col_start, slice_start, row_end, col_end, slice_end]
-    bbox_2 : numpy ndarray
+    bbox_2 : array_like
         expected to be of type [row_start, col_start, slice_start, row_end, col_end, slice_end]
     return
     -------
-    convex_bbox: numpy ndarray
+    convex_bbox: array_like
         bounding box of same type as input
     """
     assert len(bbox_1.shape) == 1 & len(bbox_2.shape) == 1, print("Dimensionality must be of shape 1.")
@@ -209,14 +209,14 @@ def binarize_segment(seg, label):
     """
     Parameters
     ----------
-    seg : numpy ndarray
+    seg : array_like
         segmented volume with label and background values
     label : int
         label of interest
 
     Returns
     -------
-    seg_bin : numpy ndarray
+    seg_bin : array_like
         binary volume matrix
     """
     seg_bin = np.zeros(seg.shape)
@@ -238,9 +238,9 @@ def find_segment_differences(pred, gt, centroid_thresh, iou_thresh):
 
     Parameters
     ----------
-    pred : numpy ndarray
+    pred : array_like
         multi-instance segmentation mask of prediction segments
-    pred : numpy ndarray
+    pred : array_like
         multi-instance segmentation mask of ground truth segments
     centroid_thresh : float
     iou_thresh : float
@@ -261,6 +261,7 @@ def find_segment_differences(pred, gt, centroid_thresh, iou_thresh):
     df_pred['bbox'] = np.nan
     df_gt['match'] = False
     df_pred['match'] = False
+    df_pred['confusion'] = None
 
     df_gt['centroid'] = df_gt.apply(lambda x: np.array([x['centroid-0'], x['centroid-1'],
                                                         x['centroid-2']]), axis=1)
@@ -289,39 +290,102 @@ def find_segment_differences(pred, gt, centroid_thresh, iou_thresh):
             gt_roi = crop_volume(gt, bbox)
             pred_roi = crop_volume(pred, bbox)
             iou = evaluate_overlap(gt_roi, pred_roi, idx_gt + 1, idx_pred + 1)
-
+            #print('iou: {}'.format(iou))
             if iou >= iou_thresh:
+                #print('iou_thresh succesful')
                 # store all the instances that fulfill threshold condition as list of tuples
                 iou_match.append((iou, idx_pred))
                 match_found = True
 
         if match_found:
             # find idx of segment with biggest iou score
+            #print('iou_match: {}'.format(iou_match))
             idx_max = max(iou_match, key=lambda i: i[0])[1]
+            #print('idx_max: {}'.format(idx_max))
             df_gt['match'] = True
             df_pred['match'] = True
+            df_pred['confusion'].loc[idx_max] = 'TP' # True Positive
             # fill up each new dataframe with the matching instance rows
             df_gt_ext = df_gt_ext.append(df_gt.loc[idx_gt], ignore_index=False)
             df_pred_ext = df_pred_ext.append(df_pred.loc[idx_max], ignore_index=False)
         if not match_found:
             # fill up each dataframe with a new line, where the dummy row in df_pred_ext corresponds to a
             # FALSE NEGATIVE of the prediction algorithm.
+            #print('FN')
+            #df_pred['confusion'] = 'FN' # False Negative
             df_gt_ext = df_gt_ext.append(df_gt.loc[idx_gt], ignore_index=False)
             df_pred_ext = df_pred_ext.append({'area': 0.0, 'centroid': np.array([np.nan, np.nan, np.nan]),
-                                              'match': False}, ignore_index=True)
+                                              'match': False, 'confusion': 'FN'}, ignore_index=True)
 
     # find all the FALSE POSITIVES in prediction mask and store them in subframe
-    subframe = df_pred[df_pred['match'] == False]
+    subframe = df_pred[(df_pred['match'] == False) & (df_pred['confusion'] != 'FN')]
     if subframe.shape[0] > 0:
         n_rows = subframe.shape[0]
         # fill up each dataframe with a new line, where the dummy row in df_gt_ext corresponds to a
         # FALSE POSITIVE of the prediction algorithm.
+        subframe['confusion'] = 'FP'
         df_pred_ext = df_pred_ext.append(subframe, ignore_index=False)
         df_gt_ext = df_gt_ext.append(pd.DataFrame.from_dict({'area': [0.0] * n_rows,
                                                              'centroid': [[np.nan, np.nan, np.nan]] * n_rows,
                                                              'match': [False] * n_rows}), ignore_index=True)
     return df_gt_ext, df_pred_ext
 
+def sync_instance_masks(gt, pred, df_gt, df_pred, merged_mask = True):
+    """
+    Function that assigns labels a unique color and label number for visualization purposes
+    Parameters
+    ----------
+    gt : array_like
+    pred : array_like
+    df_gt : pandas DataFrame
+    df_pred : pandas DataFrame
+
+    Returns
+    -------
+    array_like
+        gt_sync
+        pred_sync
+    """
+    assert gt.shape == pred.shape, print("Input volumes must be of same size.")
+    assert df_gt.shape[0] == df_pred.shape[0], print("Inputs must be of same shape along axis 0.")
+
+    gt_sync = np.zeros(gt.shape)
+    pred_sync = np.zeros(pred.shape)
+    merged = convert_gray2rgb(gt_sync)
+
+    for i in range(df_gt.shape[0]):
+        if df_pred['confusion'].iloc[i] == 'TP':
+            gt_sync[gt == df_gt['label'].iloc[i]] = i
+            pred_sync[pred == df_pred['label'].iloc[i]] = i
+            if merged_mask:
+                merged[[gt_sync == pred_sync]] = (0, 100, 0)           # darkgreen
+                merged[[(gt_sync == i) & (pred_sync != i)]] = (0, 128, 0)  # green
+                merged[[(gt_sync != i) & (pred_sync == i)]] = (0, 255, 0)  # limegreen
+        elif df_pred['confusion'].iloc[i] == 'FP':
+            pred_sync[pred == df_pred['label'].iloc[i]] = i
+            if merged_mask:
+                merged[[(gt_sync == 0) & (pred_sync == i)]] = (255, 0, 0)  # red
+                merged[[(pred_sync == i) & (gt_sync != 0)]] = (255, 69, 0) # orangered
+        elif df_pred['confusion'].iloc[i] == 'FN':
+            gt_sync[gt == df_gt['label'].iloc[i]] = i
+            if merged_mask:
+                merged[[(gt_sync == i) & (pred_sync == 0)]] = (255, 255, 0)  # yellow
+                merged[[(gt_sync == i) & (pred_sync != 0)]] = (0, 100, 0)    # greenyellow
+        else:
+            print(i)
+            print(df_gt.iloc[i])
+            print(df_pred.iloc[i])
+            print(df_pred['confusion'].iloc[i])
+            raise KeyError("Something is wrong with your DataFrame. Entry not found in 'confusion' column." )
+    return gt_sync, pred_sync, merged
+
+def convert_gray2rgb(volume):
+    width, height, depth = volume.shape
+    out = np.empty((width, height, depth, 3), dtype=np.uint8)
+    out[:, :, :, 0] = volume
+    out[:, :, :, 1] = volume
+    out[:, :, :, 2] = volume
+    return out
 
 def calc_area_diff(df_gt, df_pred):
     """
