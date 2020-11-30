@@ -4,6 +4,7 @@ from skimage import measure
 import pandas as pd
 import tifffile
 import math
+import matplotlib.pyplot as plt
 
 
 def iou(pred, gt):
@@ -86,7 +87,6 @@ def find_candidates(gt, pred, gt_bbox, df_pred, margin=0):
     values = np.unique(pred_subvol)
     pred_labels = np.delete(values, np.where(values == 0))
     df_pred_cand = df_pred.loc[df_pred['label'].isin(pred_labels)]
-    # df_pred_cand = df_pred.loc[[i for i in pred_labels]]
     return df_pred_cand, pred_labels
 
 
@@ -125,7 +125,7 @@ def find_centroid_matches(centroid, df_segments, thresh):
             if smallest_distance <= dist:
                 closest_idx = idx
     if closest_idx >= 0:
-        df_closest = df.closest.append(df_segments.iloc[closest_idx])
+        df_closest = df_closest.append(df_segments.iloc[closest_idx])
     df_match = df_segments.loc[label_match]
     return df_match, label_match, df_closest, distances
 
@@ -197,9 +197,7 @@ def get_convex_bbox(bbox_1, bbox_2):
     assert len(bbox_1.shape) == 1 & len(bbox_2.shape) == 1, print("Dimensionality must be of shape 1.")
     assert bbox_1.shape == bbox_2.shape, print("bbox must be of same shapes.")
     convex_bbox = np.zeros(bbox_1.shape)
-    # for i in range(math.floor(bbox_1.shape[0]/2)):
     convex_bbox[:math.ceil(bbox_1.shape[0] / 2)] = np.minimum(bbox_1, bbox_2)[0:math.floor(bbox_1.shape[0] / 2)]
-    # for i in range(math.floor(bbox_1.shape[0]/2), bbox_1.shape[0]):
     convex_bbox[math.floor(bbox_1.shape[0] / 2):bbox_1.shape[0]] = np.maximum(bbox_1, bbox_2)[
                                                                    math.floor(bbox_1.shape[0] / 2):bbox_1.shape[0]]
     return convex_bbox
@@ -276,6 +274,7 @@ def find_segment_differences(pred, gt, centroid_thresh, iou_thresh):
     df_pred_ext = pd.DataFrame(columns=df_pred.columns)
 
     for idx_gt, row_gt in df_gt.iterrows():
+        #print(idx_gt)
         match_found = False
 
         # find neighbouring cells within a dilated bounding cube search space
@@ -285,25 +284,24 @@ def find_segment_differences(pred, gt, centroid_thresh, iou_thresh):
                                                                              centroid_thresh)
         iou_match = []
         for idx_pred, row_pred in df_match.iterrows():
+            #print(idx_pred)
             # enlarge region of interest such that all the segments of interest are fully contained within the volume
             bbox = get_convex_bbox(row_gt['bbox'], row_pred['bbox'])
             gt_roi = crop_volume(gt, bbox)
             pred_roi = crop_volume(pred, bbox)
-            iou = evaluate_overlap(gt_roi, pred_roi, idx_gt + 1, idx_pred + 1)
-            #print('iou: {}'.format(iou))
+            gt_label = df_gt.iloc[idx_gt]['label']
+            pred_label = df_pred.iloc[idx_pred]['label']
+            iou = evaluate_overlap(gt_roi, pred_roi, gt_label, pred_label)
             if iou >= iou_thresh:
-                #print('iou_thresh succesful')
                 # store all the instances that fulfill threshold condition as list of tuples
                 iou_match.append((iou, idx_pred))
                 match_found = True
 
         if match_found:
             # find idx of segment with biggest iou score
-            #print('iou_match: {}'.format(iou_match))
             idx_max = max(iou_match, key=lambda i: i[0])[1]
-            #print('idx_max: {}'.format(idx_max))
-            df_gt['match'] = True
-            df_pred['match'] = True
+            df_gt['match'].loc[idx_max] = True
+            df_pred['match'].loc[idx_max] = True
             df_pred['confusion'].loc[idx_max] = 'TP' # True Positive
             # fill up each new dataframe with the matching instance rows
             df_gt_ext = df_gt_ext.append(df_gt.loc[idx_gt], ignore_index=False)
@@ -311,8 +309,6 @@ def find_segment_differences(pred, gt, centroid_thresh, iou_thresh):
         if not match_found:
             # fill up each dataframe with a new line, where the dummy row in df_pred_ext corresponds to a
             # FALSE NEGATIVE of the prediction algorithm.
-            #print('FN')
-            #df_pred['confusion'] = 'FN' # False Negative
             df_gt_ext = df_gt_ext.append(df_gt.loc[idx_gt], ignore_index=False)
             df_pred_ext = df_pred_ext.append({'area': 0.0, 'centroid': np.array([np.nan, np.nan, np.nan]),
                                               'match': False, 'confusion': 'FN'}, ignore_index=True)
@@ -323,7 +319,7 @@ def find_segment_differences(pred, gt, centroid_thresh, iou_thresh):
         n_rows = subframe.shape[0]
         # fill up each dataframe with a new line, where the dummy row in df_gt_ext corresponds to a
         # FALSE POSITIVE of the prediction algorithm.
-        subframe['confusion'] = 'FP'
+        subframe['confusion'].values[:] = 'FP'
         df_pred_ext = df_pred_ext.append(subframe, ignore_index=False)
         df_gt_ext = df_gt_ext.append(pd.DataFrame.from_dict({'area': [0.0] * n_rows,
                                                              'centroid': [[np.nan, np.nan, np.nan]] * n_rows,
@@ -332,7 +328,7 @@ def find_segment_differences(pred, gt, centroid_thresh, iou_thresh):
 
 def sync_instance_masks(gt, pred, df_gt, df_pred, merged_mask = True):
     """
-    Function that assigns labels a unique color and label number for visualization purposes
+    Function that assigns pixels a unique color based on TP, FP and FN for visualization purposes.
     Parameters
     ----------
     gt : array_like
@@ -351,32 +347,32 @@ def sync_instance_masks(gt, pred, df_gt, df_pred, merged_mask = True):
 
     gt_sync = np.zeros(gt.shape)
     pred_sync = np.zeros(pred.shape)
-    merged = convert_gray2rgb(gt_sync)
-
-    for i in range(df_gt.shape[0]):
-        if df_pred['confusion'].iloc[i] == 'TP':
-            gt_sync[gt == df_gt['label'].iloc[i]] = i
-            pred_sync[pred == df_pred['label'].iloc[i]] = i
+    shape = list(gt_sync.shape)
+    shape.append(3)
+    merged = np.zeros(tuple(shape), dtype=np.uint8)
+    #merged = convert_gray2rgb(gt_sync)
+    i = 1
+    for idx, row in df_gt.iterrows():
+        if df_pred.iloc[idx]['confusion'] == 'TP':
+            gt_sync[gt == df_gt.iloc[idx]['label']] = i
+            pred_sync[pred == df_pred.iloc[idx]['label']] = i
             if merged_mask:
-                merged[[gt_sync == pred_sync]] = (0, 100, 0)           # darkgreen
-                merged[[(gt_sync == i) & (pred_sync != i)]] = (0, 128, 0)  # green
-                merged[[(gt_sync != i) & (pred_sync == i)]] = (0, 255, 0)  # limegreen
-        elif df_pred['confusion'].iloc[i] == 'FP':
-            pred_sync[pred == df_pred['label'].iloc[i]] = i
+                merged[(gt_sync == pred_sync) * (gt_sync != 0)] = [0, 100, 0]               # darkgreen      (TP)
+                merged[(gt_sync == i) & (pred_sync != i) & (pred_sync != 0)] = [0, 128, 0]  # green          (FN)
+                merged[(gt_sync != i) & (pred_sync == i)] = [0, 0, 255]                     # blue/limegreen (FP)
+        elif df_pred.iloc[idx]['confusion'] == 'FP':
+            pred_sync[pred == df_pred.iloc[idx]['label']] = i
             if merged_mask:
-                merged[[(gt_sync == 0) & (pred_sync == i)]] = (255, 0, 0)  # red
-                merged[[(pred_sync == i) & (gt_sync != 0)]] = (255, 69, 0) # orangered
-        elif df_pred['confusion'].iloc[i] == 'FN':
-            gt_sync[gt == df_gt['label'].iloc[i]] = i
+                merged[(gt_sync == 0) & (pred_sync == i)] = [255, 0, 0]        # red            (FP - background)
+                merged[(pred_sync == i) & (gt_sync != 0)] = [255, 69, 0]       # orangered      (FP - cell overlap)
+        elif df_pred.iloc[idx]['confusion'] == 'FN':
+            gt_sync[gt == df_gt.iloc[idx]['label']] = i
             if merged_mask:
-                merged[[(gt_sync == i) & (pred_sync == 0)]] = (255, 255, 0)  # yellow
-                merged[[(gt_sync == i) & (pred_sync != 0)]] = (0, 100, 0)    # greenyellow
+                merged[(gt_sync == i) & (pred_sync == 0)] = [255, 255, 0]      # yellow         (FN - background)
+                merged[(gt_sync == i) & (pred_sync != 0)] = [0, 100, 0]        # greenyellow    (FN - cell overlap)
         else:
-            print(i)
-            print(df_gt.iloc[i])
-            print(df_pred.iloc[i])
-            print(df_pred['confusion'].iloc[i])
             raise KeyError("Something is wrong with your DataFrame. Entry not found in 'confusion' column." )
+        i += 1
     return gt_sync, pred_sync, merged
 
 def convert_gray2rgb(volume):
@@ -441,6 +437,56 @@ def calc_centroid_diff(df_gt, df_pred):
             df['centroid_diff'].iloc[i] = df_gt["centroid"].iloc[i] - df_pred["centroid"].iloc[i]
     return df
 
+def ignore_boundary_segments(mask):
+    """
+    Deletes segments that touch the boundaries of the segmented mask. This will be important for e.g.
+    centroid analysis, where it is important to have information about the whole segment.
+    Parameters
+    ----------
+    mask : array_like
+
+    Returns
+    -------
+    array_like
+    """
+    rows, cols, slices = mask.shape
+    for label in np.delete(np.unique(mask), np.where(mask == 0)):
+        if mask[0,:,:] == label or mask[:, 0,:] == label or mask[:,:, 0] == label or mask[rows-1, :, :] == label \
+                or mask[:, cols-1, :] == label or mask[:, :, slices-1] == label:
+            np.delete(mask, np.where(mask == label))
+    return mask
+
+#Mouse scroll event.
+def mouse_scroll(event):
+    fig = event.canvas.figure
+    ax = fig.axes[0]
+    if event.button == 'down':
+        next_slice(ax)
+    fig.canvas.draw()
+
+#Next slice func.
+def next_slice(ax):
+    volume = ax.volume
+    ax.index = (ax.index - 1) % volume.shape[0]
+    img.set_array(volume[:, :, ax.index])
+
+
+def mouse_click(event, img, ax, volume):
+    fig = event.canvas.figure
+    ax = fig.axes[0]
+    ax.volume = volume
+    ax.index = (ax.index - 1) % volume.shape[2]
+    img.set_array(volume[:, :, ax.index])
+    fig.canvas.draw_idle()
+
+def multi_slice_viewer(volume):
+    fig, ax = plt.subplots()
+    ax.volume = volume # volume is a 3D data, a 3d np array.
+    ax.index = 1
+    img = ax.imshow(volume[:, :, ax.index])
+    fig.canvas.mpl_connect('scroll_event', mouse_scroll)
+    fig.canvas.mpl_connect('button_press_event', mouse_click)
+    plt.show()
 
 def create_tiff_stack(name, path):
     with tifffile.TiffWriter(name) as stack:
