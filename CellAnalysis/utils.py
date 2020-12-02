@@ -4,7 +4,8 @@ from skimage import measure
 import pandas as pd
 import tifffile
 import math
-import matplotlib.pyplot as plt
+from skimage import segmentation
+import tensorflow as tf
 
 
 def iou(pred, gt):
@@ -221,7 +222,6 @@ def binarize_segment(seg, label):
     seg_bin[seg == label] = 1
     return seg_bin
 
-
 def find_segment_differences(pred, gt, centroid_thresh, iou_thresh):
     """
     Function that takes two segmented volumes and returns two corresponding DataFrame instances of same shapes.
@@ -328,7 +328,9 @@ def find_segment_differences(pred, gt, centroid_thresh, iou_thresh):
 
 def sync_instance_masks(gt, pred, df_gt, df_pred, merged_mask = True):
     """
-    Function that assigns pixels a unique color based on TP, FP and FN for visualization purposes.
+    Function that assigns pixels a unique color based on TP, FP and FN for visualization purposes. Moreover returning
+    a synced label pattern with gt_syn and pred_sync. Cells that seem to match in both masks will have
+    same labels.
     Parameters
     ----------
     gt : array_like
@@ -341,6 +343,7 @@ def sync_instance_masks(gt, pred, df_gt, df_pred, merged_mask = True):
     array_like
         gt_sync
         pred_sync
+        merged
     """
     assert gt.shape == pred.shape, print("Input volumes must be of same size.")
     assert df_gt.shape[0] == df_pred.shape[0], print("Inputs must be of same shape along axis 0.")
@@ -456,37 +459,29 @@ def ignore_boundary_segments(mask):
             np.delete(mask, np.where(mask == label))
     return mask
 
-#Mouse scroll event.
-def mouse_scroll(event):
-    fig = event.canvas.figure
-    ax = fig.axes[0]
-    if event.button == 'down':
-        next_slice(ax)
-    fig.canvas.draw()
+def highlight_boundary(img, seg, mode='gt'):
+    print(img.shape)
+    if img.shape[-1] != 3:
+        img = convert_gray2rgb(img)
+        #img = tf.convert_to_tensor(np.expand_dims(img, -1))
+        #img = tf.image.grayscale_to_rgb(img).numpy()
+    #print(img.unique())
+    if mode == 'gt':
+        img[segmentation.find_boundaries(seg, mode='inner')] = [0.0, 255.0, 0.0]
+    elif mode == 'pred':
+        img[segmentation.find_boundaries(seg, mode='inner')] = [255.0, 0.0, 0.0]
+    else:
+        raise KeyError('Key that has been passed for mode is not known.')
+    return img
 
-#Next slice func.
-def next_slice(ax):
-    volume = ax.volume
-    ax.index = (ax.index - 1) % volume.shape[0]
-    img.set_array(volume[:, :, ax.index])
+def draw_boundaries(img, gt, pred, draw_centroid = True):
+    properties = ['centroid']
+    df_gt = pd.DataFrame.from_dict(measure.regionprops_table(gt, properties=properties))
+    df_pred = pd.DataFrame.from_dict(measure.regionprops_table(pred, properties=properties))
+    #df_gt.apply(lambda x: )
+    img = highlight_boundary(highlight_boundary(img, pred, mode='pred'), gt, mode='gt')
+    return
 
-
-def mouse_click(event, img, ax, volume):
-    fig = event.canvas.figure
-    ax = fig.axes[0]
-    ax.volume = volume
-    ax.index = (ax.index - 1) % volume.shape[2]
-    img.set_array(volume[:, :, ax.index])
-    fig.canvas.draw_idle()
-
-def multi_slice_viewer(volume):
-    fig, ax = plt.subplots()
-    ax.volume = volume # volume is a 3D data, a 3d np array.
-    ax.index = 1
-    img = ax.imshow(volume[:, :, ax.index])
-    fig.canvas.mpl_connect('scroll_event', mouse_scroll)
-    fig.canvas.mpl_connect('button_press_event', mouse_click)
-    plt.show()
 
 def create_tiff_stack(name, path):
     with tifffile.TiffWriter(name) as stack:

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from CellAnalysis.utils import *
 import pandas as pd
 from imageio import volwrite, volread
-from CellAnalysis import visualize
+from CellAnalysis.evaluation import *
 
 if __name__ == "__main__":
 
@@ -13,7 +13,7 @@ if __name__ == "__main__":
     # file root
     file_root = 'x-ray-boxes/'
 
-    # volume_JBW = io.imread('box6_vol.tif')
+    volume_JBW = io.imread(file_root + 'box6_vol.tif')
     seg_JBW = io.imread(file_root + 'box6_seg.tif')
     seg_JBW_stardist = io.imread(file_root + 'box6_stardist.tif')
 
@@ -33,6 +33,14 @@ if __name__ == "__main__":
     seg_RM = io.imread(file_root + 'box5_seg.tif')
     seg_RM_stardist = io.imread(file_root + 'box5_stardist.tif')
 
+    #df_JBW_seg = get_centroids_from_mask(seg_JBW_stardist)
+    #df_JBW = get_centroids_from_mask(seg_JBW)
+    #dist_matrix = distance_matrix(get_centroid_array(df_JBW), get_centroid_array(df_JBW_seg))
+    #fig, ax = plt.figure()
+    ADC = average_distance_between_centroids(seg_JBW, seg_JBW_stardist)
+
+
+    '''
     centroid_thresh = 30
     iou_thresh = 0.3
     df_PT, df_PT_sd = find_segment_differences(seg_PT_stardist, seg_PT, centroid_thresh=centroid_thresh,
@@ -45,9 +53,16 @@ if __name__ == "__main__":
                                                  iou_thresh=iou_thresh)
     df_RM, df_RM_sd = find_segment_differences(seg_RM_stardist, seg_RM, centroid_thresh=centroid_thresh,
                                                  iou_thresh=iou_thresh)
-
-    _, _, merged_JBW = sync_instance_masks(seg_JBW, seg_JBW_stardist, df_JBW, df_JBW_sd)
-    visualize.SliceViewer.plot(merged_JBW)
+    '''
+    '''
+    fig, ax = plt.subplots()
+    img = highlight_boundary(volume_JBW, seg_JBW, mode='gt')
+    img = highlight_boundary(img, seg_JBW_stardist, mode='pred')
+    im = ax.imshow(img[5])
+    plt.show()
+    #_, _, merged_JBW = sync_instance_masks(seg_JBW, seg_JBW_stardist, df_JBW, df_JBW_sd)
+    #visualize.SliceViewer.plot(merged_JBW)
+    '''
     '''
     volwrite('visualize_segs_JBW.tiff', merged_JBW)
     _, _, merged_PT = sync_instance_masks(seg_PT, seg_PT_stardist, df_PT, df_PT_sd)
