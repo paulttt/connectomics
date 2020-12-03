@@ -37,8 +37,8 @@ if __name__ == "__main__":
     #df_JBW = get_centroids_from_mask(seg_JBW)
     #dist_matrix = distance_matrix(get_centroid_array(df_JBW), get_centroid_array(df_JBW_seg))
     #fig, ax = plt.figure()
-    ADC = average_distance_between_centroids(seg_JBW, seg_JBW_stardist)
-
+    ADC = average_distance_between_centroids(seg_JBW, seg_JBW)
+    print(ADC)
 
     '''
     centroid_thresh = 30

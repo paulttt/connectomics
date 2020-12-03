@@ -1,2 +1,0 @@
-from CellAnalysis.evaluation import *
-

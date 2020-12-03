@@ -22,16 +22,21 @@ def distance_matrix(gt, pred):
 
 def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=False):
     """
-    Function that computes all the metrics 
+    Average Distance between Centroids (ADC) Metric
+    Can be informative for cell alignment and can be used for registration purposes.
+    Metric is based on two parts:
+        part a - Average Distance to Ground Truth segments (ADGC): Term that penalizes false positive predictions.
+        part b - Average Distance to Predicted Centroids (ADPC): Term that penalizes false negative predictions.
+    ADC = (ADGC + ADPC) / 2
     Parameters
     ----------
     gt : array-like
         ground truth segmentation mask
     pred : array-like
         predicted segmentation mask by the model
-    dist_thresh : float
+    dist_thresh : float (optional)
         threshold for deciding if cells are the same w.r.t. centroid offset
-    all_stats : boolean
+    all_stats : boolean (optional)
         Calculates and returns all the stats
 
     Returns
