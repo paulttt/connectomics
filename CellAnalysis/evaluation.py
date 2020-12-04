@@ -1,9 +1,20 @@
 import numpy as np
 from CellAnalysis.utils import *
 
-
-
+# Implemented on the idea of Zudi Lin of from Pfister Lab, Harvard University.
 def distance_matrix(gt, pred):
+    """
+    Parameters
+    ----------
+    gt : array-like
+        Centroid vector of ground truth data of shape (N,3)
+    pred : array-like
+        Centroid vector of prediction data of shape (M,3)
+    Returns
+    -------
+    array-like
+        Matrix of shape (N,M) with euclidean distances between centroids.
+    """
     print('Shape of ground truth centroid vector: \t \t {}'.format(gt.shape))
     print('Shape of model prediction centroid vector: \t {}'.format(pred.shape))
     print('Calculating distance matrix...')
