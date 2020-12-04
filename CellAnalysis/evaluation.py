@@ -1,7 +1,7 @@
 import numpy as np
 from CellAnalysis.utils import *
 
-# Implemented on the idea of Zudi Lin of from Pfister Lab, Harvard University.
+# Implemented on the idea of Zudi Lin from Pfister Lab, Harvard University.
 def distance_matrix(gt, pred):
     """
     Parameters
@@ -15,11 +15,11 @@ def distance_matrix(gt, pred):
     array-like
         Matrix of shape (N,M) with euclidean distances between centroids.
     """
-    print('Shape of ground truth centroid vector: \t \t {}'.format(gt.shape))
-    print('Shape of model prediction centroid vector: \t {}'.format(pred.shape))
-    print('Calculating distance matrix...')
+    #print('Shape of ground truth centroid vector: \t \t {}'.format(gt.shape))
+    #print('Shape of model prediction centroid vector: \t {}'.format(pred.shape))
+    #print('Calculating distance matrix...')
     distance_matrix = np.linalg.norm(gt[:, None, :] - pred[None, :, :], axis=-1)
-    print('Shape of calculated distance matrix: \t \t {}'.format(distance_matrix.shape))
+    #print('Shape of calculated distance matrix: \t \t {}'.format(distance_matrix.shape))
     return distance_matrix
 
 def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=False):
