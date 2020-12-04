@@ -6,6 +6,7 @@ from CellAnalysis.utils import *
 import pandas as pd
 from imageio import volwrite, volread
 from CellAnalysis.evaluation import *
+from CellAnalysis import visualize
 
 if __name__ == "__main__":
 
@@ -17,30 +18,40 @@ if __name__ == "__main__":
     seg_JBW = io.imread(file_root + 'box6_seg.tif')
     seg_JBW_stardist = io.imread(file_root + 'box6_stardist.tif')
 
-    # volume_PT = io.imread('box2_vol.tif')
+    volume_PT = io.imread(file_root + 'box2_vol.tif')
     seg_PT = io.imread(file_root + 'box2_seg.tif')
     seg_PT_stardist = io.imread(file_root + 'box2_stardist.tif')
 
-    # volume_MM = io.imread('box3_vol.tif')
+    # volume_MM = io.imread(file_root + 'box3_vol.tif')
     seg_MM = io.imread(file_root + 'box3_seg.tif')
     seg_MM_stardist = io.imread(file_root + 'box3_stardist.tif')
 
-    # volume_DL = io.imread('box4_vol.tif')
+    volume_DL = io.imread(file_root + 'box4_vol.tif')
     seg_DL = io.imread(file_root + 'box4_seg.tif')
     seg_DL_stardist = io.imread(file_root + 'box4_stardist.tif')
 
-    # volume_RM = io.imread('box5_vol.tif')
+    # volume_RM = io.imread(file_root + 'box5_vol.tif')
     seg_RM = io.imread(file_root + 'box5_seg.tif')
     seg_RM_stardist = io.imread(file_root + 'box5_stardist.tif')
 
+    '''
+    fig1 = plt.figure()
+    # fig.title("histogramms: area difference compared to stardist segmentation")
+    ax1 = fig1.add_subplot(2, 3, 1)
+    ax2 = fig1.add_subplot(2, 3, 2)
+    ax3 = fig1.add_subplot(2, 3, 3)
+    ax4 = fig1.add_subplot(2, 3, 4)
+    ax5 = fig1.add_subplot(2, 3, 5)
+    '''
+    '''
     #df_JBW_seg = get_centroids_from_mask(seg_JBW_stardist)
     #df_JBW = get_centroids_from_mask(seg_JBW)
     #dist_matrix = distance_matrix(get_centroid_array(df_JBW), get_centroid_array(df_JBW_seg))
     #fig, ax = plt.figure()
     ADC = average_distance_between_centroids(seg_JBW, seg_JBW)
     print(ADC)
-
     '''
+
     centroid_thresh = 30
     iou_thresh = 0.3
     df_PT, df_PT_sd = find_segment_differences(seg_PT_stardist, seg_PT, centroid_thresh=centroid_thresh,
@@ -53,16 +64,21 @@ if __name__ == "__main__":
                                                  iou_thresh=iou_thresh)
     df_RM, df_RM_sd = find_segment_differences(seg_RM_stardist, seg_RM, centroid_thresh=centroid_thresh,
                                                  iou_thresh=iou_thresh)
-    '''
-    '''
-    fig, ax = plt.subplots()
-    img = highlight_boundary(volume_JBW, seg_JBW, mode='gt')
-    img = highlight_boundary(img, seg_JBW_stardist, mode='pred')
-    im = ax.imshow(img[5])
-    plt.show()
-    #_, _, merged_JBW = sync_instance_masks(seg_JBW, seg_JBW_stardist, df_JBW, df_JBW_sd)
-    #visualize.SliceViewer.plot(merged_JBW)
-    '''
+
+
+    #fig, ax = plt.subplots()
+    img1 = draw_boundaries(volume_JBW, seg_JBW, seg_JBW_stardist, draw_centroid=True)
+    img2 = draw_boundaries(volume_PT, seg_PT, seg_PT_stardist, draw_centroid=True)
+    img3 = draw_boundaries(volume_DL, seg_DL, seg_DL_stardist, draw_centroid=True)
+    #img = highlight_boundary(volume_JBW, seg_JBW, mode='gt')
+    #img = highlight_boundary(img, seg_JBW_stardist, mode='pred')
+    #im = ax.imshow(img[5])
+    #plt.show()
+    _, _, merged_JBW = sync_instance_masks(seg_JBW, seg_JBW_stardist, df_JBW, df_JBW_sd)
+    _, _, merged_PT = sync_instance_masks(seg_PT, seg_PT_stardist, df_PT, df_PT_sd)
+    _, _, merged_DL = sync_instance_masks(seg_DL, seg_DL_stardist, df_DL, df_DL_sd)
+    visualize.SliceViewer.plot(img1, img2, img3, merged_JBW, merged_PT, merged_DL)
+
     '''
     volwrite('visualize_segs_JBW.tiff', merged_JBW)
     _, _, merged_PT = sync_instance_masks(seg_PT, seg_PT_stardist, df_PT, df_PT_sd)

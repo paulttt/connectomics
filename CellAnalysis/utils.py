@@ -440,6 +440,16 @@ def calc_centroid_diff(df_gt, df_pred):
             df['centroid_diff'].iloc[i] = df_gt["centroid"].iloc[i] - df_pred["centroid"].iloc[i]
     return df
 
+def get_centroids_from_mask(seg):
+    df = pd.DataFrame.from_dict(measure.regionprops_table(seg, properties=['centroid']))
+    df['centroid'] = df.apply(lambda x: [x['centroid-0'], x['centroid-1'], x['centroid-2']], axis=1)
+    return df
+
+def get_centroid_array(df):
+    a = df['centroid'].to_numpy()
+    a = np.stack(a, axis=0)
+    return a
+
 def ignore_boundary_segments(mask):
     """
     Deletes segments that touch the boundaries of the segmented mask. This will be important for e.g.
@@ -459,13 +469,13 @@ def ignore_boundary_segments(mask):
             np.delete(mask, np.where(mask == label))
     return mask
 
+def cast_indices_to_int(df):
+    df['centroid'] = df['centroid'].apply(lambda x: list(map(int, map(round, x))))
+    return df
+
 def highlight_boundary(img, seg, mode='gt'):
-    print(img.shape)
     if img.shape[-1] != 3:
         img = convert_gray2rgb(img)
-        #img = tf.convert_to_tensor(np.expand_dims(img, -1))
-        #img = tf.image.grayscale_to_rgb(img).numpy()
-    #print(img.unique())
     if mode == 'gt':
         img[segmentation.find_boundaries(seg, mode='inner')] = [0.0, 255.0, 0.0]
     elif mode == 'pred':
@@ -475,12 +485,22 @@ def highlight_boundary(img, seg, mode='gt'):
     return img
 
 def draw_boundaries(img, gt, pred, draw_centroid = True):
-    properties = ['centroid']
-    df_gt = pd.DataFrame.from_dict(measure.regionprops_table(gt, properties=properties))
-    df_pred = pd.DataFrame.from_dict(measure.regionprops_table(pred, properties=properties))
-    #df_gt.apply(lambda x: )
     img = highlight_boundary(highlight_boundary(img, pred, mode='pred'), gt, mode='gt')
-    return
+
+    if draw_centroid:
+        df_gt = cast_indices_to_int(get_centroids_from_mask(gt))
+        df_pred = cast_indices_to_int(get_centroids_from_mask(pred))
+        for idx_pred, row_pred in df_pred.iterrows():
+            row, col, slice = tuple(row_pred['centroid'])
+            img[row-1:row+2, col, slice] = [255.0, 128.0, 0.0]
+            img[row, col-1:col+2, slice] = [255.0, 128.0, 0.0]
+            img[row, col, slice-1:slice+2] = [255.0, 128.0, 0.0]
+        for idx_gt, row_gt in df_gt.iterrows():
+            row, col, slice = tuple(row_gt['centroid'])
+            img[row-1:row+2, col, slice] = [34.0, 139.0,  34.0]
+            img[row, col-1:col+2, slice] = [34.0, 139.0,  34.0]
+            img[row, col, slice-1:slice+2] = [34.0, 139.0,  34.0]
+    return img
 
 
 def create_tiff_stack(name, path):

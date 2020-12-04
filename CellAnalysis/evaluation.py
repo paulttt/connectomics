@@ -1,16 +1,7 @@
 import numpy as np
-import pandas as pd
-from skimage import measure
+from CellAnalysis.utils import *
 
-def get_centroids_from_mask(seg):
-    df = pd.DataFrame.from_dict(measure.regionprops_table(seg, properties=['centroid']))
-    df['centroid'] = df.apply(lambda x: [x['centroid-0'], x['centroid-1'], x['centroid-2']], axis=1)
-    return df
 
-def get_centroid_array(df):
-    a = df['centroid'].to_numpy()
-    a = np.stack(a, axis=0)
-    return a
 
 def distance_matrix(gt, pred):
     print('Shape of ground truth centroid vector: \t \t {}'.format(gt.shape))
