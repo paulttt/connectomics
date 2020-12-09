@@ -1,8 +1,9 @@
-import numpy as np
 from CellAnalysis.utils import *
+import time
+
 
 # Implemented on the idea of Zudi Lin from Pfister Lab, Harvard University.
-def distance_matrix(gt, pred):
+def distance_matrix(gt, pred, real_distance=True, voxel_size=(1, 1, 1)):
     """
     Parameters
     ----------
@@ -10,19 +11,43 @@ def distance_matrix(gt, pred):
         Centroid vector of ground truth data of shape (N,3)
     pred : array-like
         Centroid vector of prediction data of shape (M,3)
+    real_distance: boolean (optional)
+        Calculates the real euclidean distance using the voxel_size variable
+    voxel_size: tuple (optional)
+        length along each axis of each voxel
+
     Returns
     -------
     array-like
         Matrix of shape (N,M) with euclidean distances between centroids.
     """
-    #print('Shape of ground truth centroid vector: \t \t {}'.format(gt.shape))
-    #print('Shape of model prediction centroid vector: \t {}'.format(pred.shape))
-    #print('Calculating distance matrix...')
-    distance_matrix = np.linalg.norm(gt[:, None, :] - pred[None, :, :], axis=-1)
-    #print('Shape of calculated distance matrix: \t \t {}'.format(distance_matrix.shape))
-    return distance_matrix
+    diffs = gt[:, None, :] - pred[None, :, :]
+    if real_distance:
+        return calc_real_dist(diffs, voxel_size)
+    else:
+        return np.linalg.norm(gt[:, None, :] - pred[None, :, :], axis=-1)
 
-def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=False):
+
+def calc_real_dist(dist, voxel_size=(1, 1, 1)):
+    """
+    Calculates the real euclidean norms for a given matrix and given voxel dimensions.
+    Parameters
+    ----------
+    dist : array_like
+    voxel_size : tuple
+
+    Returns
+    -------
+    array_like
+        real euclidean distance matrix
+    """
+    assert(dist.shape[-1] == 3), print('last dimension of input matrix must be of shape 3.')
+    for i, axis_size in enumerate(voxel_size):
+        dist[..., i] *= axis_size
+    return np.linalg.norm(dist, axis=-1)
+
+
+def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=False, real_dist=True, voxel_size=(1, 1, 1)):
     """
     Average Distance between Centroids (ADC) Metric
     Can be informative for cell alignment and can be used for registration purposes.
@@ -30,6 +55,7 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
         part a - Average Distance to Ground Truth segments (ADGC): Term that penalizes false positive predictions.
         part b - Average Distance to Predicted Centroids (ADPC): Term that penalizes false negative predictions.
     ADC = (ADGC + ADPC) / 2
+
     Parameters
     ----------
     gt : array-like
@@ -40,6 +66,10 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
         threshold for deciding if cells are the same w.r.t. centroid offset
     all_stats : boolean (optional)
         Calculates and returns all the stats
+    real_dist: boolean (optional)
+        Calculates the real euclidean distance using the voxel_size variable
+    voxel_size: tuple (optional)
+        length along each axis of each voxel
 
     Returns
     -------
@@ -54,10 +84,14 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
     fp:         int (optional)
     fn:         int (optional)
     """
+    get_centroids = time.time()
     gt_np = get_centroid_array(get_centroids_from_mask(gt))
     pred_np = get_centroid_array(get_centroids_from_mask(pred))
+    time_centroid = time.time()-get_centroids
+    print("Runtime for extracting centroid vectors from label masks: \t\t{:.8f}".format(time_centroid))
 
-    distances = distance_matrix(gt_np, pred_np)
+    calc_distance = time.time()
+    distances = distance_matrix(gt_np, pred_np, real_dist, voxel_size)
 
     min_gt = np.min(distances, axis=1)
     min_pred = np.min(distances, axis=0)
@@ -66,7 +100,9 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
     min_adgc = min_pred.sum() / min_pred.shape[0]
 
     min_adc = (min_adgc + min_adpc) / 2
-    
+    time_metric = time.time() - calc_distance
+    print("Runtime for calculating distance matrix and ADC metrics: \t\t{:.8f}".format(time_metric))
+    print("Runtimes varies by a factor of: \t\t\t\t\t{:.3f}\n".format(time_centroid/time_metric))
     if all_stats:
 
         mean_gt = np.mean(distances, axis=1)
@@ -87,6 +123,6 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
         recall = tp / (tp + fn)
         f_score = 2.0 * precision + recall / (precision + recall)
         
-        return min_adc, mean_adc, f_score, precision, recall, tp, fp, fn
+        return min_adc, min_adpc, min_adgc, mean_adc, f_score, precision, recall, tp, fp, fn
     else:
-        return min_adc
+        return min_adc, min_adpc, min_adgc

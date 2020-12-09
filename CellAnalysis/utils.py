@@ -5,8 +5,25 @@ import pandas as pd
 import tifffile
 import math
 from skimage import segmentation
-import tensorflow as tf
+from scipy.signal import resample_poly
+import h5py
 
+def dataloader(path):
+    # Write data to HDF5
+    content = {}
+    with h5py.File(path, 'r') as hdf:
+        ls = list(hdf.keys())
+        print('list of datasets in this file: \n', ls)
+        for key in ls:
+            data = hdf.get(key)
+            content[key] = np.array(data)
+    return content
+    '''
+    hf = h5py.File(path, 'r')
+    n1 = np.zeros(shape, dtype=numpy_type)
+    hf['dataset_name'].read_direct(n1)
+    hf.close()
+    '''
 
 def iou(pred, gt):
     """
@@ -477,9 +494,11 @@ def highlight_boundary(img, seg, mode='gt'):
     if img.shape[-1] != 3:
         img = convert_gray2rgb(img)
     if mode == 'gt':
-        img[segmentation.find_boundaries(seg, mode='inner')] = [0.0, 255.0, 0.0]
+        img = segmentation.mark_boundaries(img, seg, color=(0.1,0.6,0.1), mode='subpixel')
+        #img[segmentation.find_boundaries(seg, mode='inner')] = [0.0, 255.0, 0.0]
     elif mode == 'pred':
-        img[segmentation.find_boundaries(seg, mode='inner')] = [255.0, 0.0, 0.0]
+        img = segmentation.mark_boundaries(img, seg, color=(0.8, 0, 0), mode='subpixel')
+        #img[segmentation.find_boundaries(seg, mode='inner')] = [255.0, 0.0, 0.0]
     else:
         raise KeyError('Key that has been passed for mode is not known.')
     return img
@@ -502,6 +521,17 @@ def draw_boundaries(img, gt, pred, draw_centroid = True):
             img[row, col, slice-1:slice+2] = [34.0, 139.0,  34.0]
     return img
 
+def upsample_intensity(vol, factor):
+    assert isinstance(factor, int), print("Upsampling factor must be of type int.")
+    factors = [(factor, 1), (factor, 1), (factor, 1)]
+    for k in range(3):
+        vol = resample_poly(vol, factors[k][0], factors[k][1], axis=k)
+    return vol
+
+def upsample_mask(mask, factor):
+    assert isinstance(factor, int), print("Upsampling factor must be of type int.")
+    mask_upsample = mask.repeat(factor, axis=0).repeat(factor, axis=1).repeat(factor, axis=2)
+    return mask_upsample
 
 def create_tiff_stack(name, path):
     with tifffile.TiffWriter(name) as stack:
@@ -511,3 +541,5 @@ def create_tiff_stack(name, path):
                 photometric='minisblack',
                 contiguous=True
             )
+
+
