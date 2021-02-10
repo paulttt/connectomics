@@ -1,9 +1,10 @@
 from CellAnalysis.utils import *
 import time
+import numpy as np
 
 
 # Implemented on the idea of Zudi Lin from Pfister Lab, Harvard University.
-def distance_matrix(gt, pred, real_distance=True, voxel_size=(1, 1, 1)):
+def distance_matrix(gt, pred, real_distance=True, size=None):
     """
     Parameters
     ----------
@@ -21,14 +22,24 @@ def distance_matrix(gt, pred, real_distance=True, voxel_size=(1, 1, 1)):
     array-like
         Matrix of shape (N,M) with euclidean distances between centroids.
     """
-    diffs = gt[:, None, :] - pred[None, :, :]
-    if real_distance:
-        return calc_real_dist(diffs, voxel_size)
+    if len(gt.shape) == 3:
+        diffs = gt[:, None, :] - pred[None, :, :]
+        if size == None:
+            size = (1, 1, 1)
+    elif len(gt.shape) == 2:
+        diffs = gt[:, None] - pred[None, :]
+        if size == None:
+            size = (1, 1)
     else:
-        return np.linalg.norm(gt[:, None, :] - pred[None, :, :], axis=-1)
+        raise NotImplementedError
+
+    if real_distance:
+        return calc_real_dist(diffs, size)
+    else:
+        return np.linalg.norm(diffs, axis=-1)
 
 
-def calc_real_dist(dist, voxel_size=(1, 1, 1)):
+def calc_real_dist(dist, size=None):
     """
     Calculates the real euclidean norms for a given matrix and given voxel dimensions.
     Parameters
@@ -41,13 +52,21 @@ def calc_real_dist(dist, voxel_size=(1, 1, 1)):
     array_like
         real euclidean distance matrix
     """
-    assert(dist.shape[-1] == 3), print('last dimension of input matrix must be of shape 3.')
-    for i, axis_size in enumerate(voxel_size):
+    if size == None:
+        if len(gt.shape) == 3:
+            size = (1, 1, 1)
+        elif len(gt.shape) == 2:
+            size = (1, 1)
+        else:
+            raise NotImplementedError
+
+    #assert(dist.shape[-1] == 3), print('last dimension of input matrix must be of shape 3.')
+    for i, axis_size in enumerate(size):
         dist[..., i] *= axis_size
     return np.linalg.norm(dist, axis=-1)
 
 
-def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=False, real_dist=True, voxel_size=(1, 1, 1)):
+def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=False, real_dist=True, size = None):
     """
     Average Distance between Centroids (ADC) Metric
     Can be informative for cell alignment and can be used for registration purposes.
@@ -84,14 +103,18 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
     fp:         int (optional)
     fn:         int (optional)
     """
-    get_centroids = time.time()
+    if size == None:
+        if len(gt.shape) == 3:
+            size = (1, 1, 1)
+        elif len(gt.shape) == 2:
+            size = (1, 1)
+        else:
+            raise NotImplementedError
+
     gt_np = get_centroid_array(get_centroids_from_mask(gt))
     pred_np = get_centroid_array(get_centroids_from_mask(pred))
-    time_centroid = time.time()-get_centroids
-    print("Runtime for extracting centroid vectors from label masks: \t\t{:.8f}".format(time_centroid))
 
-    calc_distance = time.time()
-    distances = distance_matrix(gt_np, pred_np, real_dist, voxel_size)
+    distances = distance_matrix(gt_np, pred_np, real_dist, size)
 
     min_gt = np.min(distances, axis=1)
     min_pred = np.min(distances, axis=0)
@@ -100,9 +123,6 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
     min_adgc = min_pred.sum() / min_pred.shape[0]
 
     min_adc = (min_adgc + min_adpc) / 2
-    time_metric = time.time() - calc_distance
-    print("Runtime for calculating distance matrix and ADC metrics: \t\t{:.8f}".format(time_metric))
-    print("Runtimes varies by a factor of: \t\t\t\t\t{:.3f}\n".format(time_centroid/time_metric))
     if all_stats:
 
         mean_gt = np.mean(distances, axis=1)

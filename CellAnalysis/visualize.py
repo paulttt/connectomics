@@ -1,33 +1,40 @@
 import matplotlib.pyplot as plt
-import pdb
 import matplotlib
 print(matplotlib.__version__, matplotlib.get_backend())
 
 class SliceViewer(object):
-    def __init__(self, ax, X):
+    def __init__(self, ax, X, aspect='auto'):
         self.ax = ax
-        ax.set_title('use scroll wheel to navigate images')
+        #ax.set_title('use scroll wheel to navigate images')
 
         self.X = X
         self.mode = 0
-        self.rows, self.cols, self.slices, _ = X.shape
+        self.rows = X.shape[0]
+        self.cols = X.shape[1]
+        self.slices = X.shape[2]
         self.ind = self.slices // 2
-        self.index = (slice(None), slice(None), self.ind)
+        self.index = (slice(None), self.ind, slice(None))
 
-        self.im = ax.imshow(self.X[self.index])
+        self.im = ax.imshow(self.X[self.index], aspect=aspect)
         #self.im = ax.imshow(self.X[:, :, self.ind])
         self.update()
 
     def viewmode(self):
         mode = self.mode
         if mode == 0: # XY-plane
-            self.rows, self.cols, self.slices, _ = self.X.shape
+            self.rows = self.X.shape[0]
+            self.cols = self.X.shape[1]
+            self.slices = self.X.shape[2]
             self.index = (slice(None), slice(None), self.ind)
         elif mode == 1: # XZ-plane
-            self.rows, self.slices, self.cols, _ = self.X.shape
+            self.rows = self.X.shape[0]
+            self.cols = self.X.shape[2]
+            self.slices = self.X.shape[1]
             self.index = (slice(None), self.ind, slice(None))
         elif mode == 2: # YZ-plane
-            self.slices, self.rows, self.cols, _ = self.X.shape
+            self.rows = self.X.shape[1]
+            self.cols = self.X.shape[2]
+            self.slices = self.X.shape[0]
             self.index = (self.ind, slice(None), slice(None))
         else:
             raise KeyError('invalid view mode.')
@@ -49,9 +56,30 @@ class SliceViewer(object):
         self.update()
 
     def update(self):
+        mode = self.mode
+        if mode == 0:  # XY-plane
+            self.rows = self.X.shape[0]
+            self.cols = self.X.shape[1]
+            self.slices = self.X.shape[2]
+            self.index = (slice(None), slice(None), self.ind)
+            self.ax.set_ylabel('slice %s (XY-plane)' % self.ind)
+        elif mode == 1:  # XZ-plane
+            self.rows = self.X.shape[0]
+            self.cols = self.X.shape[2]
+            self.slices = self.X.shape[1]
+            self.index = (slice(None), self.ind, slice(None))
+            self.ax.set_ylabel('slice %s (XZ-plane)' % self.ind)
+        elif mode == 2:  # YZ-plane
+            self.rows = self.X.shape[1]
+            self.cols = self.X.shape[2]
+            self.slices = self.X.shape[0]
+            self.index = (self.ind, slice(None), slice(None))
+            self.ax.set_ylabel('slice %s (YZ-plane)' % self.ind)
+        else:
+            raise KeyError('invalid view mode.')
         self.im.set_data(self.X[self.index])
         #self.im.set_data(self.X[:, :, self.ind])
-        self.ax.set_ylabel('slice %s' % self.ind)
+
         self.im.axes.figure.canvas.draw()
 
     def plot(volume1, volume2, volume3, volume4, volume5, volume6):
@@ -75,4 +103,3 @@ class SliceViewer(object):
         fig.canvas.mpl_connect('key_press_event', viewer5.click_view)
         fig.canvas.mpl_connect('key_press_event', viewer6.click_view)
         plt.show()
-
