@@ -1,5 +1,5 @@
 from CellAnalysis.utils import *
-import time
+from scipy.stats import sem
 import numpy as np
 
 
@@ -94,6 +94,10 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
     -------
     min_adc:    float
         Average Distance between Centroids (ADC)
+    min_adpc:    float
+        Average Distance to Prediction Centroids (ADPC)
+    min_adgc:    float
+        Average Distance to Ground Truth Centroids (ADGC)
 
     mean_adc:   float (optional)
     f_score:    float (optional)
@@ -119,10 +123,12 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
     min_gt = np.min(distances, axis=1)
     min_pred = np.min(distances, axis=0)
 
-    min_adpc = min_gt.sum() / min_gt.shape[0]
-    min_adgc = min_pred.sum() / min_pred.shape[0]
-
+    min_adpc = np.mean(min_gt)
+    min_adgc = np.mean(min_pred)
+    adpc_sem = sem(min_gt)
+    adgc_sem = sem(min_pred)
     min_adc = (min_adgc + min_adpc) / 2
+    adc_sem = (adpc_sem + adgc_sem) / 2
     if all_stats:
 
         mean_gt = np.mean(distances, axis=1)
@@ -145,4 +151,4 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
         
         return min_adc, min_adpc, min_adgc, mean_adc, f_score, precision, recall, tp, fp, fn
     else:
-        return min_adc, min_adpc, min_adgc
+        return min_adc, min_adpc, min_adgc, adc_sem, adpc_sem, adgc_sem
