@@ -10,6 +10,28 @@ import matplotlib.pyplot as plt
 
 class Eval:
     def __init__(self, gt, pred, resolution=(1, 1, 1), model_name='prediction model', name_data='test data'):
+        """
+        This class evaluates the quality of a predicted segmentation mask by computing IoU-related scores like Average
+        Precision (AP), mean average precision (mAP), and mask offset metrics like Average Distance between
+        Centroids (ADC). The class can handle both 2D and 3D datasets. The data is expected to be of type numpy arrays.
+        It is also possible to input lists of numpy arrays. Pay attention that the order of entries in the input lists
+        must match:
+        E.g.  gt = [gt_mask_img_1,   gt_mask_img_2,   ..., gt_mask_img_n]
+        and pred = [pred_mask_img_1, pred_mask_img_2, ..., pred_mask_img_n].
+
+        Parameters
+        ----------
+        gt : np.ndarray or list of numpy.ndarrays
+            Ground Truth segmentation mask(s) with int labels from 1 to n and 0 as background. Either 2D or 3D.
+        pred : np.ndarray or list of numpy.ndarrays
+            Prediction segmentation mask(s) with int labels from 1 to n and 0 as background. Either 2D or 3D.
+        resolution : tuple
+            specifies the spatial resolution of the data (voxel/pixel-size).
+        model_name : string
+            Name of the model to evaluate.
+        name_data : string
+            Name/Type of the data to evaluate.
+        """
         self.size = resolution
 
         if isinstance(gt, np.ndarray) and isinstance(pred, np.ndarray):
@@ -34,29 +56,11 @@ class Eval:
         self.name = model_name
         self.data = name_data
 
-    def plot_ap(self, ax, color='b', label='model', linestyle='-', marker='o', error_band=False):
-        ap = self.map['Average Precision'][:, 0]
-        x = np.arange(0.5, 1.0, 0.05)
-        ax.plot(x, ap, linestyle=linestyle, marker=marker, color=color, label=label)
-        if isinstance(self.pred, np.ndarray) and error_band:
-            print('Plotting the error band not possible with only one test instance.')
-        elif error_band:
-            sem_error = self.map['ap_sem']
-            ax.fill_between(x, ap-sem_error, ap+sem_error, color=color, alpha=0.2)
-        return ax
-
-    def print_adc_scores(self):
-        print(''.ljust(100, '-'))
-        print('Compute distance metrics for {} for {}...\n'.format(self.name, self.data))
-        print('Average Distance between Centroids for {}:'.format(self.name).ljust(87, ' ')
-              + '{:.3f} ± {:.3f}'.format(self.adc['adc'], self.adc['adc_sem']))
-        print('Average Distance between Prediction Centroids for {}:'.format(self.name).ljust(87, ' ')
-              + '{:.3f} ± {:.3f}'.format(self.adc['adpc'], self.adc['adpc_sem']))
-        print('Average Distance between Ground Truth Centroids for {}:'.format(self.name).ljust(87, ' ')
-              + '{:.3f} ± {:.3f}'.format(self.adc['adgc'], self.adc['adgc_sem']))
-        print(''.ljust(100, '-'))
-
     def accumulate(self):
+        """
+        Computes and accumulates the relevant metrics from the segmented masks. Stores dictionaries in the adc and map
+        variables with the relevant computed metrics.
+        """
         adc_keys = ['adc', 'adpc', 'adgc', 'adc_sem', 'adpc_sem', 'adgc_sem']
         if isinstance(self.pred, np.ndarray):
             self.map = self.get_map_scores(self.pred, self.gt)
@@ -84,7 +88,65 @@ class Eval:
         else:
             return {**self.map, **self.adc}
 
+    def plot_ap(self, ax, color='b', label='model', linestyle='-', marker='o', error_band=False):
+        """
+        Plots a graph of the average precision values for IoU thresholds from 0.5 to 0.95.
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes object
+            figure element where the plot should be visualized in.
+        color : string
+        label : string
+        linestyle : string
+        marker : string
+        error_band : boolean
+            plots the standard error of the mean around the AP curve. Only possible if several test instances inputted.
+
+        Returns
+        -------
+        matplotlib.axes.Axes object
+        """
+        if not self.map:
+            print('Please run accumulate() method first.')
+        ap = self.map['Average Precision'][:, 0]
+        x = np.arange(0.5, 1.0, 0.05)
+        ax.plot(x, ap, linestyle=linestyle, marker=marker, color=color, label=label)
+        if isinstance(self.pred, np.ndarray) and error_band:
+            print('Plotting the error band not possible with only one test instance.')
+        elif error_band:
+            sem_error = self.map['ap_sem']
+            ax.fill_between(x, ap-sem_error, ap+sem_error, color=color, alpha=0.2)
+        return ax
+
+    def print_adc_scores(self):
+        """
+        prints the average distances between centroids (adc) metrics in the console.
+        """
+        print(''.ljust(100, '-'))
+        print('Compute distance metrics for {} for {}...\n'.format(self.name, self.data))
+        print('Average Distance between Centroids for {}:'.format(self.name).ljust(87, ' ')
+              + '{:.3f} ± {:.3f}'.format(self.adc['adc'], self.adc['adc_sem']))
+        print('Average Distance between Prediction Centroids for {}:'.format(self.name).ljust(87, ' ')
+              + '{:.3f} ± {:.3f}'.format(self.adc['adpc'], self.adc['adpc_sem']))
+        print('Average Distance between Ground Truth Centroids for {}:'.format(self.name).ljust(87, ' ')
+              + '{:.3f} ± {:.3f}'.format(self.adc['adgc'], self.adc['adgc_sem']))
+        print(''.ljust(100, '-'))
+
     def get_map_scores(self, pred, gt):
+        """
+        Calculates the AP and mAP values from the mAP_3Dvolume package.
+
+        Parameters
+        ----------
+        pred : array-like
+        gt : array-like
+
+        Returns
+        -------
+        dict
+            dictionary with several stats like mAP AP@0.5, AP@0.75, Precision, Recall, etc.
+        """
         def _get_scores(pred_seg, gt_seg):
             sz_gt = np.array(gt_seg.shape)
             sz_pred = pred_seg.shape
@@ -128,6 +190,14 @@ class Eval:
 
 class Benchmarker:
     def __init__(self, model_list):
+        """
+        Class that compactly visualizes the scores of different evaluated prediction model outputs.
+        
+        Parameters
+        ----------
+        model_list : list of Eval-objects
+            expects a list of Eval objects (CellAnalysis.eval.Eval) where it fetches the relevant data to display.
+        """
         assert all(isinstance(model, Eval) for model in model_list), 'list must be of class CellAnalysis.eval.Eval'
         self.models = model_list
         self.markers = ['^', 'o', '>', '<', 'x', 'v', '*', 'D', 's', 'd', '1', '2', '3', '4', 'h', 'H']
