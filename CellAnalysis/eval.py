@@ -25,11 +25,11 @@ class Eval:
             Ground Truth segmentation mask(s) with int labels from 1 to n and 0 as background. Either 2D or 3D.
         pred : np.ndarray or list of numpy.ndarrays
             Prediction segmentation mask(s) with int labels from 1 to n and 0 as background. Either 2D or 3D.
-        resolution : tuple
+        resolution : tuple (optional)
             specifies the spatial resolution of the data (voxel/pixel-size).
-        model_name : string
+        model_name : string (optional)
             Name of the model to evaluate.
-        name_data : string
+        name_data : string (optional)
             Name/Type of the data to evaluate.
         """
         self.size = resolution
@@ -69,11 +69,14 @@ class Eval:
             map_list = []
             adc_list = []
             index_list = []
+            # iterating over all images in the provided list
             for idx, (pred_instance, gt_instance) in enumerate(zip(self.pred, self.gt)):
                 map_list.append(self.get_map_scores(pred_instance, gt_instance))
                 adc_list.append(adc_score(gt_instance, pred_instance, size=self.size))
                 index_list.append(idx)
+            # average AP scores for all test instances
             self.map = pd.DataFrame(map_list, index_list).mean().to_dict()
+            # calculate the Standard Error of the Mean for the different AP scores across different test instances
             self.map['ap_sem'] = sem(np.array([map_dict['Average Precision'][:, 0] for map_dict in map_list]), axis=0)
             self.adc = pd.DataFrame(adc_list, index=index_list, columns=adc_keys).mean().to_dict()
         else:
@@ -96,11 +99,11 @@ class Eval:
         ----------
         ax : matplotlib.axes.Axes object
             figure element where the plot should be visualized in.
-        color : string
-        label : string
-        linestyle : string
-        marker : string
-        error_band : boolean
+        color : string (optional)
+        label : string (optional)
+        linestyle : string (optional)
+        marker : string (optional)
+        error_band : boolean (optional)
             plots the standard error of the mean around the AP curve. Only possible if several test instances inputted.
 
         Returns
@@ -184,15 +187,18 @@ class Eval:
             v3deval = VOL3Deval(result_p, result_fn, pred_score_sorted, output_name='map_output')
             stats = v3deval.get_stats()
             return stats
-
+        self.not_implemented()  # dummy function that prevents interpreting the method as static -> uses self keyword.
         return _get_stats(pred, gt)
+
+    def not_implemented(self):
+        pass
 
 
 class Benchmarker:
     def __init__(self, model_list):
         """
         Class that compactly visualizes the scores of different evaluated prediction model outputs.
-        
+
         Parameters
         ----------
         model_list : list of Eval-objects
