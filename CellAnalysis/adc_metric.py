@@ -14,7 +14,7 @@ def distance_matrix(gt, pred, real_distance=True, size=None):
         Centroid vector of prediction data of shape (M,3)
     real_distance: boolean (optional)
         Calculates the real euclidean distance using the voxel_size variable
-    voxel_size: tuple (optional)
+    size: tuple (optional)
         length along each axis of each voxel
 
     Returns
@@ -24,11 +24,11 @@ def distance_matrix(gt, pred, real_distance=True, size=None):
     """
     if len(gt.shape) == 3:
         diffs = gt[:, None, :] - pred[None, :, :]
-        if size == None:
+        if size is None:
             size = (1, 1, 1)
     elif len(gt.shape) == 2:
         diffs = gt[:, None] - pred[None, :]
-        if size == None:
+        if size is None:
             size = (1, 1)
     else:
         raise NotImplementedError
@@ -42,31 +42,23 @@ def distance_matrix(gt, pred, real_distance=True, size=None):
 def calc_real_dist(dist, size=None):
     """
     Calculates the real euclidean norms for a given matrix and given voxel dimensions.
+
     Parameters
     ----------
     dist : array_like
-    voxel_size : tuple
+    size : tuple
 
     Returns
     -------
     array_like
         real euclidean distance matrix
     """
-    if size == None:
-        if len(gt.shape) == 3:
-            size = (1, 1, 1)
-        elif len(gt.shape) == 2:
-            size = (1, 1)
-        else:
-            raise NotImplementedError
-
-    #assert(dist.shape[-1] == 3), print('last dimension of input matrix must be of shape 3.')
     for i, axis_size in enumerate(size):
         dist[..., i] *= axis_size
     return np.linalg.norm(dist, axis=-1)
 
 
-def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=False, real_dist=True, size = None):
+def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=False, real_dist=True, size=None):
     """
     Average Distance between Centroids (ADC) Metric
     Can be informative for cell alignment and can be used for registration purposes.
@@ -87,7 +79,7 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
         Calculates and returns all the stats
     real_dist: boolean (optional)
         Calculates the real euclidean distance using the voxel_size variable
-    voxel_size: tuple (optional)
+    size: tuple (optional)
         length along each axis of each voxel
 
     Returns
@@ -107,7 +99,7 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
     fp:         int (optional)
     fn:         int (optional)
     """
-    if size == None:
+    if size is None:
         if len(gt.shape) == 3:
             size = (1, 1, 1)
         elif len(gt.shape) == 2:

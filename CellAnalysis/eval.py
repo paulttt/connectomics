@@ -21,9 +21,9 @@ class Eval:
 
         Parameters
         ----------
-        gt : np.ndarray or list of numpy.ndarrays
+        gt : numpy array or list of numpy arrays
             Ground Truth segmentation mask(s) with int labels from 1 to n and 0 as background. Either 2D or 3D.
-        pred : np.ndarray or list of numpy.ndarrays
+        pred : numpy array or list of numpy arrays
             Prediction segmentation mask(s) with int labels from 1 to n and 0 as background. Either 2D or 3D.
         resolution : tuple (optional)
             specifies the spatial resolution of the data (voxel/pixel-size).
@@ -46,8 +46,8 @@ class Eval:
             for pred_instance, gt_instance in zip(pred, gt):
                 assert pred_instance.shape == gt_instance.shape, 'Each instance pair must be of same shape.'
         else:
-            raise TypeError('Mask inputs must be of type numpy.ndarray '
-                            'or lists of numpy.ndarrays (e.g.: [gt_1, gt_2, ..., gt_n]).')
+            raise TypeError('Mask inputs must be of type numpy array '
+                            'or lists of numpy arrays (e.g.: [gt_1, gt_2, ..., gt_n]).')
 
         self.gt = gt
         self.pred = pred
@@ -80,14 +80,15 @@ class Eval:
             self.map['ap_sem'] = sem(np.array([map_dict['Average Precision'][:, 0] for map_dict in map_list]), axis=0)
             self.adc = pd.DataFrame(adc_list, index=index_list, columns=adc_keys).mean().to_dict()
         else:
-            raise TypeError('Mask inputs must be of type numpy.ndarray '
-                            'or lists of numpy.ndarrays (e.g.: [gt_1, gt_2, ..., gt_n]).')
+            raise TypeError('Mask inputs must be of type numpy array '
+                            'or lists of numpy arrays (e.g.: [gt_1, gt_2, ..., gt_n]).')
 
     def get_all_stats(self, as_pandas_df=False):
         if not self.adc or not self.map:
             print('Please run accumulate() method first.')
         if as_pandas_df:
-            return pd.DataFrame({**self.map, **self.adc})
+            raise NotImplementedError
+            # return pd.DataFrame({**self.map, **self.adc})
         else:
             return {**self.map, **self.adc}
 
