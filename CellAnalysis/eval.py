@@ -1,11 +1,13 @@
 from CellAnalysis.adc_metric import average_distance_between_centroids as adc_score
-from mAP_3Dvolume.vol3d_eval import VOL3Deval
-from mAP_3Dvolume.vol3d_util import seg_iou2d_sorted, seg_iou3d_sorted
+from mAP_3Dvolume.vol3d_eval_custom import VOL3Deval
+from mAP_3Dvolume.vol3d_util_custom import seg_iou2d_sorted, seg_iou3d_sorted, unique_chunk
 from scipy.stats import sem
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib.lines import Line2D
 
 
 class Eval:
@@ -53,6 +55,7 @@ class Eval:
         self.pred = pred
         self.map = {}
         self.adc = {}
+        self.adc_full = {}
         self.name = model_name
         self.data = name_data
 
@@ -79,6 +82,7 @@ class Eval:
             # calculate the Standard Error of the Mean for the different AP scores across different test instances
             self.map['ap_sem'] = sem(np.array([map_dict['Average Precision'][:, 0] for map_dict in map_list]), axis=0)
             self.adc = pd.DataFrame(adc_list, index=index_list, columns=adc_keys).mean().to_dict()
+            self.adc_full = pd.DataFrame(adc_list, index=index_list, columns=adc_keys).to_dict()
         else:
             raise TypeError('Mask inputs must be of type numpy array '
                             'or lists of numpy arrays (e.g.: [gt_1, gt_2, ..., gt_n]).')
@@ -158,8 +162,11 @@ class Eval:
                 print('Warning: size mismatch. gt: ', sz_gt, ', pred: ', sz_pred)
             sz = np.minimum(sz_gt, sz_pred)
             pred_seg = pred_seg[:sz[0], :sz[1]]
+            threshold_crumb = 16
+            chunk_size = 100
+            slices = [0, gt_seg.shape[0]]
 
-            ui, uc = np.unique(pred_seg, return_counts=True)
+            ui, uc = unique_chunk(pred_seg, slices, chunk_size=chunk_size)
             uc = uc[ui > 0]
             ui = ui[ui > 0]
             pred_score = np.ones([len(ui), 2], int)
@@ -173,13 +180,14 @@ class Eval:
             area_range[2:, 0] = thres
             area_range[1:-1, 1] = thres
 
-            return pred_score, area_range
+            return pred_score, area_range, slices, chunk_size, threshold_crumb
 
         def _get_stats(pred_seg, gt_seg):
-            pred_score, area_range = _get_scores(pred_seg, gt_seg)
+            pred_score, area_range, slices, chunk_size, threshold_crumb = _get_scores(pred_seg, gt_seg)
 
             if len(pred_seg.shape) == 3:
-                result_p, result_fn, pred_score_sorted = seg_iou3d_sorted(pred_seg, gt_seg, pred_score, area_range)
+                result_p, result_fn, pred_score_sorted = seg_iou3d_sorted(pred_seg, gt_seg, pred_score, slices,
+                                                                          area_range, chunk_size, threshold_crumb)
             elif len(pred_seg.shape) == 2:
                 result_p, result_fn, pred_score_sorted = seg_iou2d_sorted(pred_seg, gt_seg, pred_score, area_range)
             else:
@@ -229,3 +237,30 @@ class Benchmarker:
     def show_adc_scores(self):
         for model in self.models:
             model.print_adc_scores()
+
+    def plot_error_bars(self, ax=None, metric='adc', title=None, y_label=None):
+        if ax is None:
+            fig, ax = plt.subplots()
+        if title is not None:
+            ax.set_title(title, fontsize=14)
+        if y_label is not None:
+            ax.set_ylabel(y_label)
+
+        model_names = []
+        data = []
+        for model in self.models:
+            model_names.append(model.name)
+            metric_list = [metrics[0] for metrics in list(model.adc_full.items())]
+            assert metric in metric_list, 'Wrong value key. Choose value from {}'.format(metric_list)
+            data.append(list(model.adc_full[metric].values()))
+
+        sns.set(context='notebook', style='whitegrid')
+        custom_lines = []
+        for i in range(len(self.models)):
+            custom_lines.append(Line2D([0], [0], color=self.colors[i], lw=4))
+
+        sns.boxplot(ax=ax, data=data, width=.18, palette=self.colors)
+        ax.legend(custom_lines, model_names)
+        ax.set_xticks([])
+
+        return ax
