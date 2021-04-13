@@ -239,6 +239,20 @@ class Benchmarker:
             model.print_adc_scores()
 
     def plot_error_bars(self, ax=None, metric='adc', title=None, y_label=None):
+        """
+        Make Boxplot with Errorbars for multiple evaluated models of base class Eval. ADC, ADPC and ADGC metrics
+        are supported for error visualization purposes.
+        Parameters
+        ----------
+        ax : matplotlib.pyplot.ax
+        metric : str
+        title : str
+        y_label : str
+
+        Returns
+        -------
+        matplotlib.pyplot.ax
+        """
         if ax is None:
             fig, ax = plt.subplots()
         if title is not None:
