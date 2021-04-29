@@ -372,5 +372,4 @@ def benchmark(path, resolution=(0.51, 0.51, 0.51)):
                          model_name=name, name_data=data_name)
         evaluator.accumulate()
         evaluated.append(evaluator)
-    benchmark = Benchmarker(evaluated)
-    return benchmark
+    return Benchmarker(evaluated)
