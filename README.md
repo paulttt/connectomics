@@ -1,11 +1,6 @@
 # connectomics
 
 
-## Paul's ToDo List (10.11 until ~20.11)
+## CellAnalysis
 
-1. Continue Tracing (50%)
-  * Finish box 4
-  * Trace box 9
-2. Work on the python code for analysing the segmentation results (40%)
-3. Read in literature about zebrafish brain anatomy (5%)
-4. take a look at segmentation algorithms (5%)
+This toolbox supports the evaluation and benchmarking of segmentation masks of 3D and 2D neuronal cell bodies. Most of the high level easy-to-use classes and functions are implemented in the CellAnalysis/eval.py file. You can evaluate different kinds of segmentations with that package. 
