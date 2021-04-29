@@ -8,6 +8,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.lines import Line2D
+from CellAnalysis.utils import load_sorted
+from matplotlib.gridspec import GridSpec
+import os
 
 
 class Eval:
@@ -37,16 +40,20 @@ class Eval:
         self.size = resolution
 
         if isinstance(gt, np.ndarray) and isinstance(pred, np.ndarray):
-            assert gt.shape == pred.shape, 'Ground Truth and Prediction masks must be of same shape.'
+            assert gt.shape == pred.shape, 'Ground Truth and Prediction masks must be of same shape. Shapes {} ' \
+                                           'and {} were given'.format(gt.shape, pred.shape)
 
             if len(gt.shape) == 2 and len(resolution) != 2:
                 self.size = (1, 1)
 
         elif isinstance(gt, list) and isinstance(pred, list):
-            assert len(gt) == len(pred), 'Mismatch in number of GT and Pred instances.'
+            assert len(gt) == len(pred), 'Mismatch in number of GT and Pred instances. Found {} gt instances and {} ' \
+                                         'prediction instances.'.format(len(gt), len(pred))
 
             for pred_instance, gt_instance in zip(pred, gt):
-                assert pred_instance.shape == gt_instance.shape, 'Each instance pair must be of same shape.'
+                assert pred_instance.shape == gt_instance.shape, 'Each instance pair must be of same shape. Shapes {} '\
+                                                                 'and {} were given.'.format(pred_instance.shape,
+                                                                                            gt_instance.shape)
         else:
             raise TypeError('Mask inputs must be of type numpy array '
                             'or lists of numpy arrays (e.g.: [gt_1, gt_2, ..., gt_n]).')
@@ -54,6 +61,7 @@ class Eval:
         self.gt = gt
         self.pred = pred
         self.map = {}
+        self.map_full = {}
         self.adc = {}
         self.adc_full = {}
         self.name = model_name
@@ -79,6 +87,7 @@ class Eval:
                 index_list.append(idx)
             # average AP scores for all test instances
             self.map = pd.DataFrame(map_list, index_list).mean().to_dict()
+            self.map_full = pd.DataFrame(map_list, index_list).to_dict()
             # calculate the Standard Error of the Mean for the different AP scores across different test instances
             self.map['ap_sem'] = sem(np.array([map_dict['Average Precision'][:, 0] for map_dict in map_list]), axis=0)
             self.adc = pd.DataFrame(adc_list, index=index_list, columns=adc_keys).mean().to_dict()
@@ -216,10 +225,10 @@ class Benchmarker:
         assert all(isinstance(model, Eval) for model in model_list), 'list must be of class CellAnalysis.eval.Eval'
         self.models = model_list
         self.markers = ['^', 'o', '>', '<', 'x', 'v', '*', 'D', 's', 'd', '1', '2', '3', '4', 'h', 'H']
-        self.colors = ['b', 'g', 'r', 'c', 'm', 'y', 'black', 'orange', 'darkblue', 'goldenrod',
-                       'peru', 'tomato', 'deeppink', 'skyblue', 'limegreen']
+        self.colors = ['b', 'g', 'r', 'c', 'm', 'y', 'limegreen', 'orange', 'darkblue', 'goldenrod',
+                       'peru', 'tomato', 'deeppink', 'skyblue', 'black']
 
-    def plot_ap_curves(self, ax=None, set_ax_layout=True, error_band=False):
+    def plot_ap_curves(self, ax=None, set_ax_layout=True, error_band=False, fontsize=12):
         if ax is None:
             fig, ax = plt.subplots(figsize=(12, 7))
 
@@ -229,16 +238,17 @@ class Benchmarker:
         if set_ax_layout:
             mpl.rcParams['xtick.labelsize'] = 16
             mpl.rcParams['ytick.labelsize'] = 16
-            ax.set_ylabel('Average Precision (AP)', fontsize=15)
-            ax.set_xlabel('IoU Threshold', fontsize=15)
-            ax.legend(fontsize=12)
+            ax.set_ylabel('Average Precision (AP)', fontsize=12)
+            ax.set_xlabel('IoU Threshold', fontsize=12)
+            ax.legend(fontsize=10)
             ax.set_ylim(0.0, 1.0)
 
     def show_adc_scores(self):
         for model in self.models:
             model.print_adc_scores()
 
-    def plot_error_bars(self, ax=None, metric='adc', title=None, y_label=None):
+    def plot_error_bars(self, ax=None, metric='adc', title=None, y_label=None, set_legend=True, fontsize=12,
+                        legend_font_size=8, legend_loc='best'):
         """
         Make Boxplot with Errorbars for multiple evaluated models of base class Eval. ADC, ADPC and ADGC metrics
         are supported for error visualization purposes.
@@ -248,15 +258,19 @@ class Benchmarker:
         metric : str
         title : str
         y_label : str
+        set_legend : boolean
+        fontsize : int
+        legend_font_size : int
 
         Returns
         -------
+
         matplotlib.pyplot.ax
         """
         if ax is None:
             fig, ax = plt.subplots()
         if title is not None:
-            ax.set_title(title, fontsize=14)
+            ax.set_title(title, fontsize=fontsize)
         if y_label is not None:
             ax.set_ylabel(y_label)
 
@@ -264,17 +278,99 @@ class Benchmarker:
         data = []
         for model in self.models:
             model_names.append(model.name)
-            metric_list = [metrics[0] for metrics in list(model.adc_full.items())]
+            adc_list = [metrics[0] for metrics in list(model.adc_full.items())]
+            map_list = [metrics[0] for metrics in list(model.map.items())]
+            metric_list = adc_list + map_list
             assert metric in metric_list, 'Wrong value key. Choose value from {}'.format(metric_list)
-            data.append(list(model.adc_full[metric].values()))
+            if metric in adc_list:
+                data.append(list(model.adc_full[metric].values()))
+            else:
+                data.append(list(model.map_full[metric].values()))
 
-        sns.set(context='notebook', style='whitegrid')
+        sns.set(context='notebook')
         custom_lines = []
         for i in range(len(self.models)):
             custom_lines.append(Line2D([0], [0], color=self.colors[i], lw=4))
 
         sns.boxplot(ax=ax, data=data, width=.18, palette=self.colors)
-        ax.legend(custom_lines, model_names)
+        if set_legend:
+            ax.legend(custom_lines, model_names, fontsize=legend_font_size, loc=legend_loc)
         ax.set_xticks([])
 
         return ax
+
+    def summarize(self, title=None, save_to_file=None, figsize=None):
+        if title is None:
+            title = 'Summarized Stats for Segmentation'
+        if figsize is None:
+            figsize = (20, 8.5)
+        sns.set()
+        fig = plt.figure(figsize=figsize)
+        plt.rcParams['figure.constrained_layout.use'] = True
+        plt.rcParams['figure.constrained_layout.h_pad'] = 0.01
+        fig.suptitle(title, fontsize=24)
+        font_size = 12
+        gs = GridSpec(2, 5, figure=fig)
+        ax1 = fig.add_subplot(gs[:, :2])
+        ax2 = fig.add_subplot(gs[0, 2])
+        ax3 = fig.add_subplot(gs[0, 3])
+        ax4 = fig.add_subplot(gs[0, 4])
+        ax5 = fig.add_subplot(gs[1, 2])
+        ax6 = fig.add_subplot(gs[1, 3])
+        ax7 = fig.add_subplot(gs[1, 4])
+
+        self.plot_ap_curves(ax1, fontsize=12)
+        ax1.set_title('Average Precision across IoU thresholds')
+
+        ax2 = self.plot_error_bars(ax2, metric='mAP @ 0.5:0.95', title='mean Average Precision (mAP) @ 0.5:0.95',
+                                        fontsize=font_size, set_legend=True, legend_loc='lower left')
+        ax3 = self.plot_error_bars(ax3, metric='AP @ 0.5', title='Average Precision (AP) @ 0.5',
+                                        fontsize=font_size, set_legend=True, legend_loc='lower left')
+        ax4 = self.plot_error_bars(ax4, metric='AP @ 0.75', title='Average Precision (AP) @ 0.75',
+                                        fontsize=font_size, set_legend=True, legend_loc='lower left')
+        ax2.set_ylim([0.0, 1.2])
+        ax3.set_ylim([0.0, 1.2])
+        ax4.set_ylim([0.0, 1.2])
+
+        ax5 = self.plot_error_bars(ax5, metric='adc', title='ADC', fontsize=font_size, set_legend=True,
+                                        legend_loc='upper left')
+        ax6 = self.plot_error_bars(ax6, metric='adpc', title='ADPC (FN Error)', fontsize=font_size,
+                                        set_legend=True, legend_loc='upper left')
+        ax7 = self.plot_error_bars(ax7, metric='adgc', title='ADGC (FP Error)', fontsize=font_size,
+                                        set_legend=True, legend_loc='upper left')
+        ax5.set_ylim([0.0, 1.0])
+        ax6.set_ylim([0.0, 1.0])
+        ax7.set_ylim([0.0, 1.0])
+
+        ax5.set_ylabel('Euclidean Distance [µm]', fontsize=font_size)
+        mpl.rcParams['xtick.labelsize'] = 12
+        mpl.rcParams['ytick.labelsize'] = 12
+
+        if save_to_file is not None:
+            plt.savefig(save_to_file + '.png')
+
+
+def benchmark(path, resolution=(0.51, 0.51, 0.51)):
+    models = []
+    for i, (root, d_names, f_names) in enumerate(os.walk(path)):
+        if i == 0:
+            data_name = root.rsplit('/', 1)[1]
+        elif i < 3:
+            data_type = root.rsplit('/', 1)[1]
+            if data_type == 'gt':
+                gt = load_sorted(root + '/')
+            elif data_type == 'prediction':
+                model_names = d_names
+            else:
+                print('Error!!!')
+        else:
+            models.append(load_sorted(root + '/'))
+
+    evaluated = []
+    for pred, name in zip(models, model_names):
+        evaluator = Eval(gt, pred, resolution=resolution,
+                         model_name=name, name_data=data_name)
+        evaluator.accumulate()
+        evaluated.append(evaluator)
+    benchmark = Benchmarker(evaluated)
+    return benchmark

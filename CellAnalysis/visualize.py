@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 print(matplotlib.__version__, matplotlib.get_backend())
 
+
 class SliceViewer(object):
     def __init__(self, ax, X, aspect='auto'):
         self.ax = ax

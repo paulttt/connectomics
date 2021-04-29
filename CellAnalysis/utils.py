@@ -10,6 +10,7 @@ import h5py
 import cv2
 import matplotlib.colors as mcolors
 from random import randint
+from skimage import io
 
 pd.options.mode.chained_assignment = 'raise'
 
@@ -729,7 +730,7 @@ def ignore_boundary_segments(mask):
     """
     rows, cols, slices = mask.shape
     for label in np.delete(np.unique(mask), np.where(mask == 0)):
-        if mask[0,:,:] == label or mask[:, 0, :] == label or mask[:, :, 0] == label or mask[rows-1, :, :] == label \
+        if mask[0, :, :] == label or mask[:, 0, :] == label or mask[:, :, 0] == label or mask[rows-1, :, :] == label \
                 or mask[:, cols-1, :] == label or mask[:, :, slices-1] == label:
             np.delete(mask, np.where(mask == label))
     return mask
@@ -862,6 +863,13 @@ def draw_boundaries(img, gt, pred, draw_centroid = True, thickness=1.0, z_pos=2)
             img[row, col-3:col+4, slice] = [34.0, 139.0,  34.0]
             img[row, col, slice-3:slice+4] = [34.0, 139.0,  34.0]
     return img
+
+
+def load_sorted(path, dtype=np.uint16):
+    img_list = []
+    for name in sorted(glob.glob(path + '*')):
+        img_list.append(io.imread(name).astype(dtype))
+    return img_list
 
 
 def upsample_intensity(vol, factor):
