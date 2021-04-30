@@ -13,7 +13,7 @@ path = os.path.dirname(os.path.abspath(""))+"/"
 file_root = path + 'example_data/EM Data'
 benchmark = benchmark(file_root, resolution=(0.51, 0.51, 0.51))
 ```
-Here we pass a folder to the function, where all the relevant files can be found in its subdirectories. It is really important that the user follows the exact same file/directory structure as mentioned below:
+Here we pass a folder to the function, where all the relevant files can be found in its subdirectories. It is really important that the user follows the exact same file/directory structure as mentioned below. The names of the files can be chosen arbitrarly by the user, it is just important that the names are consisent across the different volumes/roi as they get read in in a sorted fashion.
 ```
 EM\ Data
     ├── gt
