@@ -136,6 +136,62 @@ class Eval:
             ax.fill_between(x, ap-sem_error, ap+sem_error, color=color, alpha=0.2)
         return ax
 
+    def box_plots(self, ax=None, metric='adc', title=None, y_label=None, set_legend=True, fontsize=12,
+                  legend_font_size=8, legend_loc='best'):
+        if ax is None:
+            fig, ax = plt.subplots()
+        if title is not None:
+            ax.set_title(title, fontsize=fontsize)
+        if y_label is not None:
+            ax.set_ylabel(y_label)
+
+        palette = sns.color_palette('colorblind')
+        data = []
+        custom_lines = []
+        if metric == 'adc':
+            metric_names = ['adc', 'adpc', 'adgc']
+        elif metric == 'ap':
+            metric_names = ['mAP @ 0.5:0.95', 'AP @ 0.5', 'AP @ 0.75', 'AP @ 0.9']
+            if isinstance(self.pred, np.ndarray):
+                raise UserWarning('No error variance can be shown, because only test instance was given.')
+        else:
+            raise KeyError('Metric is not supported. Either choose {} or {} instead.'.format('adc', 'ap'))
+        for i, metric_key in enumerate(metric_names):
+            if metric == 'adc':
+                data.append(list(self.adc_full[metric_key].values()))
+            else:
+                data.append(list(self.map_full[metric_key].values()))
+            custom_lines.append(Line2D([0], [0], color=palette[i], lw=4))
+
+        sns.set(context='notebook')
+        sns.boxplot(ax=ax, data=data, width=.18, palette=palette)
+        if set_legend:
+            ax.legend(custom_lines, metric_names, fontsize=legend_font_size, loc=legend_loc)
+        ax.set_xticks([])
+        return ax
+
+    def summarize(self, title=None, save_to_file=None, figsize=None, error_bands=False):
+        if title is None:
+            title = 'Summarized Stats for Segmentation'
+        if figsize is None:
+            figsize = (15, 8.5)
+        sns.set()
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize)
+        fig.suptitle(title, fontsize=24)
+        font_size = 12
+        self.plot_ap(ax1, error_band=error_bands)
+        ax1.set_title('Average Precision across IoU thresholds')
+        ax2 = self.box_plots(ax2, metric='ap', title='Average Precision', legend_font_size=12, fontsize=14)
+        ax2.set_ylim([0.0, 1.1])
+        ax3 = self.box_plots(ax3, metric='adc', title='Average Distance between Centroids',
+                             legend_font_size=12, fontsize=14)
+        ax3.set_ylabel('Euclidean Distance [µm]', fontsize=font_size)
+        mpl.rcParams['xtick.labelsize'] = 12
+        mpl.rcParams['ytick.labelsize'] = 12
+
+        if save_to_file is not None and save_to_file is not False:
+            plt.savefig(save_to_file + '.png')
+
     def print_adc_scores(self):
         """
         prints the average distances between centroids (adc) metrics in the console.
@@ -299,7 +355,7 @@ class Benchmarker:
 
         return ax
 
-    def summarize(self, title=None, save_to_file=None, figsize=None):
+    def summarize(self, title=None, save_to_file=None, figsize=None, error_bands=False):
         if title is None:
             title = 'Summarized Stats for Segmentation'
         if figsize is None:
@@ -319,7 +375,7 @@ class Benchmarker:
         ax6 = fig.add_subplot(gs[1, 3])
         ax7 = fig.add_subplot(gs[1, 4])
 
-        self.plot_ap_curves(ax1, fontsize=12)
+        self.plot_ap_curves(ax1, fontsize=12, error_band=error_bands)
         ax1.set_title('Average Precision across IoU thresholds')
 
         ax2 = self.plot_error_bars(ax2, metric='mAP @ 0.5:0.95', title='mean Average Precision (mAP) @ 0.5:0.95',
@@ -346,26 +402,45 @@ class Benchmarker:
         mpl.rcParams['xtick.labelsize'] = 12
         mpl.rcParams['ytick.labelsize'] = 12
 
-        if save_to_file is not None:
+        if save_to_file is not None and save_to_file is not False:
             plt.savefig(save_to_file + '.png')
 
 
-def benchmark(path, resolution=(0.51, 0.51, 0.51)):
+def load_data(path, benchmark=False):
     models = []
     for i, (root, d_names, f_names) in enumerate(os.walk(path)):
         if i == 0:
             data_name = root.rsplit('/', 1)[1]
+            print('Load data of type {} ...'.format(data_name))
         elif i < 3:
             data_type = root.rsplit('/', 1)[1]
             if data_type == 'gt':
                 gt = load_sorted(root + '/')
+                print('Load {} Ground Truth test instance(s) ...'.format(len(gt)))
+
             elif data_type == 'prediction':
-                model_names = d_names
+                if benchmark:
+                    model_names = d_names
+                    print('Load prediction mask instance(s) from models: {} ...'.format(model_names))
+                else:
+                    model_names = data_type
+                    models = load_sorted(root + '/')
             else:
-                print('Error!!!')
+                if benchmark:
+                    raise NameError(
+                        'Folder Structure seems to be not concise. ´prediction´ and/or ´gt´ folder not found '
+                        'on first level of folder-hierarchy.')
+                else:
+                    model_names = data_type
+                    models = load_sorted(root + '/')
         else:
             models.append(load_sorted(root + '/'))
+    print('Dataloading finished succesfully!')
+    return gt, models, model_names, data_name
 
+
+def benchmark(path, resolution=(0.51, 0.51, 0.51)):
+    gt, models, model_names, data_name = load_data(path, benchmark=True)
     evaluated = []
     for pred, name in zip(models, model_names):
         evaluator = Eval(gt, pred, resolution=resolution,
@@ -373,3 +448,10 @@ def benchmark(path, resolution=(0.51, 0.51, 0.51)):
         evaluator.accumulate()
         evaluated.append(evaluator)
     return Benchmarker(evaluated)
+
+
+def evaluate(path, resolution=(1, 1, 1)):
+    gt, pred, model_names, data_name = load_data(path, benchmark=False)
+    eval = Eval(gt, pred, resolution=resolution, model_name=model_names, name_data=data_name)
+    eval.accumulate()
+    return eval

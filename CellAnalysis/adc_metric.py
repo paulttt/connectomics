@@ -84,14 +84,15 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
 
     Returns
     -------
-    min_adc:    float
+    adc:    float
         Average Distance between Centroids (ADC)
-    min_adpc:    float
+    adpc:    float
         Average Distance to Prediction Centroids (ADPC)
-    min_adgc:    float
+    adgc:    float
         Average Distance to Ground Truth Centroids (ADGC)
 
-    mean_adc:   float (optional)
+    dpc:        array-like (optional)
+    dgc:        array-like (optional)
     f_score:    float (optional)
     precision:  float (optional)
     recall:     float (optional)
@@ -112,24 +113,16 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
 
     distances = distance_matrix(gt_np, pred_np, real_dist, size)
 
-    min_gt = np.min(distances, axis=1)
-    min_pred = np.min(distances, axis=0)
+    dpc = np.min(distances, axis=1)
+    dgc = np.min(distances, axis=0)
 
-    min_adpc = np.mean(min_gt)
-    min_adgc = np.mean(min_pred)
-    adpc_sem = sem(min_gt)
-    adgc_sem = sem(min_pred)
-    min_adc = (min_adgc + min_adpc) / 2
+    adpc = np.mean(dpc)
+    adgc = np.mean(dgc)
+    adpc_sem = sem(dpc)
+    adgc_sem = sem(dgc)
+    adc = (adgc + adpc) / 2
     adc_sem = (adpc_sem + adgc_sem) / 2
     if all_stats:
-
-        mean_gt = np.mean(distances, axis=1)
-        mean_pred = np.mean(distances, axis=0)
-
-        mean_adpc = mean_gt.sum() / mean_gt.shape[0]
-        mean_adgc = mean_pred.sum() / mean_pred.shape[0]
-
-        mean_adc = (mean_adgc + mean_adpc) / 2
 
         truth_table = np.squeeze(np.stack([distances <= dist_thresh], axis=0))
 
@@ -141,6 +134,6 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
         recall = tp / (tp + fn)
         f_score = 2.0 * precision + recall / (precision + recall)
         
-        return min_adc, min_adpc, min_adgc, mean_adc, f_score, precision, recall, tp, fp, fn
+        return adc, adpc, adgc, dpc, dgc, f_score, precision, recall, tp, fp, fn
     else:
-        return min_adc, min_adpc, min_adgc, adc_sem, adpc_sem, adgc_sem
+        return adc, adpc, adgc, adc_sem, adpc_sem, adgc_sem

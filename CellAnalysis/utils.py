@@ -823,7 +823,7 @@ def highlight_boundary(img, seg, mode='gt', thickness=1.0):
     return img
 
 
-def draw_boundaries(img, gt, pred, draw_centroid = True, thickness=1.0, z_pos=2):
+def draw_boundaries(img, gt, pred, draw_centroid=True, thickness=1.0, z_pos=2):
     """
     Draws the boundaries of a given ground truth and prediction mask in the original intensity volume by using
     the highlight_boundaries function. Optionally centroids can be drawn in the image highlighted as crosses.
@@ -868,7 +868,13 @@ def draw_boundaries(img, gt, pred, draw_centroid = True, thickness=1.0, z_pos=2)
 def load_sorted(path, dtype=np.uint16):
     img_list = []
     for name in sorted(glob.glob(path + '*')):
-        img_list.append(io.imread(name).astype(dtype))
+        file_type = name.rsplit(".", 1)[1]
+        if file_type == 'tif' or file_type == 'tiff' or file_type == 'png':
+            img_list.append(io.imread(name).astype(dtype))
+        elif file_type == 'h5':
+            raise NotImplementedError('No h5 support implemented yet.')
+        else:
+            raise TypeError('Unknown File of type {} found. Only .tif-files supported so far.'.format(file_type))
     return img_list
 
 
