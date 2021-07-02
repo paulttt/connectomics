@@ -38,7 +38,7 @@ You can vary the amount of folders in the ```prediction``` folder, it is just im
 
 If we call the function ```summarize()``` on the above instantiated class instance ```benchmark```, we could for example quickly visualize the calculated metrics from those three segmentation predictions and see how good they perform in various tasks:
 ```
-benchmark.summarize(title='Electron Microscopy - Neuronal Cell Body Segmentation Results', save_to_file='EM_Results', figsize=(20, 9))
+benchmark.summarize(title='Electron Microscopy - Neuronal Cell Body Segmentation Results', save_to_file='EM_Results', figsize=(25, 9), file_type='pdf')
 ```
 We will get the following results then:
 ![Summary of EM Segmentation Evaluation](https://github.com/paulttt/connectomics/blob/main/figures/EM_Results.png)
