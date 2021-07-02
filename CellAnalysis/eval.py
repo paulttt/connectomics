@@ -1,4 +1,5 @@
 from CellAnalysis.adc_metric import average_distance_between_centroids as adc_score
+from CellAnalysis.utils import iou
 from mAP_3Dvolume.vol3d_eval_custom import VOL3Deval
 from mAP_3Dvolume.vol3d_util_custom import seg_iou2d_sorted, seg_iou3d_sorted, unique_chunk
 from scipy.stats import sem
@@ -11,6 +12,7 @@ from matplotlib.lines import Line2D
 from CellAnalysis.utils import load_sorted
 from matplotlib.gridspec import GridSpec
 import os
+import warnings
 
 
 class Eval:
@@ -82,9 +84,13 @@ class Eval:
             index_list = []
             # iterating over all images in the provided list
             for idx, (pred_instance, gt_instance) in enumerate(zip(self.pred, self.gt)):
-                map_list.append(self.get_map_scores(pred_instance, gt_instance))
-                adc_list.append(adc_score(gt_instance, pred_instance, size=self.size))
-                index_list.append(idx)
+                if iou(pred_instance, gt_instance) > 0.0:
+                    map_list.append(self.get_map_scores(pred_instance, gt_instance))
+                    adc_list.append(adc_score(gt_instance, pred_instance, size=self.size))
+                    index_list.append(idx)
+                else:
+                    warnings.warn("Instance no. {} in your data from model {} shows no IoU matches with the provided "
+                                  "ground truth. The file will be ignored for the final evaluation.".format(idx, self.name))
             # average AP scores for all test instances
             self.map = pd.DataFrame(map_list, index_list).mean().to_dict()
             self.map_full = pd.DataFrame(map_list, index_list).to_dict()
@@ -355,15 +361,14 @@ class Benchmarker:
 
         return ax
 
-    def summarize(self, title=None, save_to_file=None, figsize=None, error_bands=False):
+    def summarize(self, title=None, save_to_file=None, figsize=None, error_bands=False, file_type='png'):
+
         if title is None:
             title = 'Summarized Stats for Segmentation'
         if figsize is None:
             figsize = (20, 8.5)
         sns.set()
         fig = plt.figure(figsize=figsize)
-        plt.rcParams['figure.constrained_layout.use'] = True
-        plt.rcParams['figure.constrained_layout.h_pad'] = 0.01
         fig.suptitle(title, fontsize=24)
         font_size = 12
         gs = GridSpec(2, 5, figure=fig)
@@ -379,14 +384,24 @@ class Benchmarker:
         ax1.set_title('Average Precision across IoU thresholds')
 
         ax2 = self.plot_error_bars(ax2, metric='mAP @ 0.5:0.95', title='mean Average Precision (mAP) @ 0.5:0.95',
-                                        fontsize=font_size, set_legend=True, legend_loc='lower left')
+                                        fontsize=font_size, set_legend=True, legend_loc='best')
         ax3 = self.plot_error_bars(ax3, metric='AP @ 0.5', title='Average Precision (AP) @ 0.5',
-                                        fontsize=font_size, set_legend=True, legend_loc='lower left')
+                                        fontsize=font_size, set_legend=True, legend_loc='best')
         ax4 = self.plot_error_bars(ax4, metric='AP @ 0.75', title='Average Precision (AP) @ 0.75',
-                                        fontsize=font_size, set_legend=True, legend_loc='lower left')
-        ax2.set_ylim([0.0, 1.2])
-        ax3.set_ylim([0.0, 1.2])
-        ax4.set_ylim([0.0, 1.2])
+                                        fontsize=font_size, set_legend=True, legend_loc='best')
+        ax2.set_ylim([0.0, 1.05])
+        ax3.set_ylim([0.0, 1.05])
+        ax4.set_ylim([0.0, 1.05])
+
+        data = []
+        for model in self.models:
+            for adc_metric in ['adc', 'adpc', 'adgc']:
+                array = np.fromiter(model.adc_full[adc_metric].values(), dtype=float).ravel()
+                data.append(array)
+
+        adc_values = np.concatenate(data)
+        min = 0.0
+        max = np.max(adc_values) + 0.05
 
         ax5 = self.plot_error_bars(ax5, metric='adc', title='ADC', fontsize=font_size, set_legend=True,
                                         legend_loc='upper left')
@@ -394,16 +409,17 @@ class Benchmarker:
                                         set_legend=True, legend_loc='upper left')
         ax7 = self.plot_error_bars(ax7, metric='adgc', title='ADGC (FP Error)', fontsize=font_size,
                                         set_legend=True, legend_loc='upper left')
-        ax5.set_ylim([0.0, 1.0])
-        ax6.set_ylim([0.0, 1.0])
-        ax7.set_ylim([0.0, 1.0])
+        ax5.set_ylim([min, max])
+        ax6.set_ylim([min, max])
+        ax7.set_ylim([min, max])
 
         ax5.set_ylabel('Euclidean Distance [µm]', fontsize=font_size)
         mpl.rcParams['xtick.labelsize'] = 12
         mpl.rcParams['ytick.labelsize'] = 12
+        fig.tight_layout()
 
         if save_to_file is not None and save_to_file is not False:
-            plt.savefig(save_to_file + '.png')
+            plt.savefig(save_to_file + '.' + file_type)
 
 
 def load_data(path, benchmark=False):
@@ -442,7 +458,7 @@ def load_data(path, benchmark=False):
 def benchmark(path, resolution=(0.51, 0.51, 0.51)):
     gt, models, model_names, data_name = load_data(path, benchmark=True)
     evaluated = []
-    for pred, name in zip(models, model_names):
+    for pred, name in sorted(zip(models, model_names), key=lambda t: t[1]):
         evaluator = Eval(gt, pred, resolution=resolution,
                          model_name=name, name_data=data_name)
         evaluator.accumulate()
