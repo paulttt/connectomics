@@ -7,7 +7,7 @@ import math
 from scipy.signal import resample_poly
 from scipy.ndimage import find_objects
 import h5py
-import cv2
+# import cv2
 import matplotlib.colors as mcolors
 from random import randint
 from skimage import io
@@ -30,6 +30,30 @@ def dataloader(path):
             data = hdf.get(key)
             content[key] = np.array(data)
     return content
+
+def precision(tp, fp):
+    if tp > 0:
+        return tp/(tp+fp)
+    else:
+        return 0
+
+def recall(tp, fn):
+    if tp > 0:
+        return tp/(tp+fn)
+    else:
+        return 0
+
+def accuracy(tp, fp, fn):
+    if tp > 0:
+        return tp/(tp+fp+fn)
+    else:
+        return 0
+
+def f1(tp, fp, fn):
+    if tp > 0:
+        return 2*tp/(2*tp+fp+fn)
+    else:
+        return 0
 
 def iou(pred, gt):
     """

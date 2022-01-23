@@ -118,8 +118,13 @@ def average_distance_between_centroids(gt, pred, dist_thresh=0.5, all_stats=Fals
 
     adpc = np.mean(dpc)
     adgc = np.mean(dgc)
-    adpc_sem = sem(dpc)
-    adgc_sem = sem(dgc)
+    if dpc.shape[0] < 2 or dgc.shape[0] < 2:
+        # if only one or less instance has been detected set sem to zero to avoid numpy RuntimeWarnings
+        adpc_sem = 0
+        adgc_sem = 0
+    else:
+        adpc_sem = sem(dpc)
+        adgc_sem = sem(dgc)
     adc = (adgc + adpc) / 2
     adc_sem = (adpc_sem + adgc_sem) / 2
     if all_stats:
