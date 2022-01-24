@@ -1,5 +1,12 @@
 # connectomics
 
+This Code was written within a research internship at Lichtman and Engert Labs at the Department of Molecular and Cellular Biology at Harvard University. 
+Parts of this work will be published in a joint publication within a neuroscientific journal.
+
+At first, this work benchmarks three state-of-the-art nuclei segmentation models on four datasets acquired with 2P, X-ray-based Micro Computed Tomography (μCT), and EM imaging from a larvae zebrafish brain. A new metric is proposed called Average Distance between Centroids (ADC) to measure the centroid alignment quality of algorithmic predictions compared to ground truth data.
+The code for this project can be found in the subfolder CellAnalysis. Moreover the package ![mAP_3Dvolume](https://github.com/ygCoconut/mAP_3Dvolume) was forked and modified for segmentation of 2D images and usage within this project.
+
+In addition, a dataset consisting of neuronal activity data from GCaMP7f expressing neurons has been used as input for different time series classification models: For the first time, it has been tried to learn excitatory and inhibitory labels retrieved from gad1b:DsRed expressing cells using 2P recordings from zebrafish brain.
 
 ## CellAnalysis
 
