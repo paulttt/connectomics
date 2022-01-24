@@ -48,5 +48,5 @@ If we call the function ```summarize()``` on the above instantiated class instan
 benchmark.summarize(title='Electron Microscopy - Neuronal Cell Body Segmentation Results', save_to_file='EM_Results', figsize=(25, 9), file_type='pdf')
 ```
 We will get the following results then:
-![Summary of EM Segmentation Evaluation](https://github.com/paulttt/connectomics/blob/main/examples/plots/EM_Results.pdf)
+![Summary of EM Segmentation Evaluation](https://github.com/paulttt/connectomics/blob/main/examples/plots/EM_Results.png)
 
