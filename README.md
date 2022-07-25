@@ -10,6 +10,7 @@ In addition, a dataset consisting of neuronal activity data from GCaMP7f express
 
 ## CellAnalysis
 
+In order to properly use all the functionalities from this package please download the [adapted mAP_3Dvolume package](https://github.com/paulttt/mAP_3Dvolume) first. This will be needed for calculating all the average precision metrics for evaluating segmentation masks.
 This toolbox supports the evaluation and benchmarking of segmentation masks of neuronal cell bodies for 3D and 2D images. Most of the high level easy-to-use classes and functions are implemented in the ```CellAnalysis/eval.py``` file. 
 The most easy-to-use and straightforward way to benchmark a set of different prediction outcomes from different models is to use the following code:
 ```
